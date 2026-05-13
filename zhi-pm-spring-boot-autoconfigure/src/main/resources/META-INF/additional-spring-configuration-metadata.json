@@ -1,0 +1,7 @@
+{
+  "properties": [
+    {"name": "realtime.websocket.enabled", "type": "java.lang.Boolean", "defaultValue": true},
+    {"name": "realtime.websocket.path", "type": "java.lang.String", "defaultValue": "/ws"},
+    {"name": "realtime.websocket.outbound-buffer-size", "type": "java.lang.Integer", "defaultValue": 256}
+  ]
+}

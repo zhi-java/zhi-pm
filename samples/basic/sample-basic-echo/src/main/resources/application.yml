@@ -1,0 +1,17 @@
+server:
+  port: 8080
+
+realtime:
+  websocket:
+    path: /ws
+    outbound-buffer-size: 64
+    auth:
+      enabled: true
+      token-param-name: access_token
+      demo-tokens:
+        alice-token: alice
+        bob-token: bob
+    heartbeat:
+      enabled: true
+      client-timeout: 60s
+      check-interval: 10s
