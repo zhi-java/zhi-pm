@@ -1,0 +1,24 @@
+server:
+  port: 8086
+
+realtime:
+  broker:
+    type: kafka
+    kafka:
+      bootstrap-servers: localhost:9092
+      topic: realtime-ws-message
+      consumer-group: sample-order-tracking
+  websocket:
+    path: /ws
+    outbound-buffer-size: 256
+    auth:
+      enabled: true
+      token-param-name: access_token
+      demo-tokens:
+        alice-token: alice
+        bob-token: bob
+        charlie-token: charlie
+    heartbeat:
+      enabled: true
+      client-timeout: 60s
+      check-interval: 30s
