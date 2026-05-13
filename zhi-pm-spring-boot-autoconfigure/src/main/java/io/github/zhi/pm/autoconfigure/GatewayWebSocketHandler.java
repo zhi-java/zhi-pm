@@ -9,6 +9,7 @@ import io.github.zhi.pm.core.auth.WebSocketAuthenticator;
 import io.github.zhi.pm.core.heartbeat.HeartbeatService;
 import io.github.zhi.pm.core.message.WsMessage;
 import io.github.zhi.pm.core.registry.ConnectionRegistry;
+import io.github.zhi.pm.core.send.MessageSender;
 import io.github.zhi.pm.core.session.DefaultSessionConnection;
 import io.github.zhi.pm.core.session.SendOutcome;
 import io.github.zhi.pm.core.session.SessionConnection;
@@ -27,14 +28,16 @@ import reactor.core.publisher.Mono;
 
 public final class GatewayWebSocketHandler implements WebSocketHandler {
     private final ConnectionRegistry registry;
+    private final MessageSender sender;
     private final WebSocketAuthenticator authenticator;
     private final HeartbeatService heartbeatService;
     private final ObjectMapper objectMapper;
     private final RealtimeWebSocketProperties properties;
     private final JavaType messageType;
 
-    public GatewayWebSocketHandler(ConnectionRegistry registry, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties) {
+    public GatewayWebSocketHandler(ConnectionRegistry registry, MessageSender sender, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties) {
         this.registry = registry;
+        this.sender = sender;
         this.authenticator = authenticator;
         this.heartbeatService = heartbeatService;
         this.objectMapper = objectMapper;
@@ -95,9 +98,58 @@ public final class GatewayWebSocketHandler implements WebSocketHandler {
                         heartbeatService.recordHeartbeat(connection);
                         return sendOrCloseOnFailure(connection, heartbeatService.pongFor(message));
                     }
+                    String type = message.getType();
+                    if ("room.join".equals(type)) {
+                        return handleRoomJoin(connection, message);
+                    }
+                    if ("room.leave".equals(type)) {
+                        return handleRoomLeave(connection, message);
+                    }
+                    if ("room.message".equals(type)) {
+                        return handleRoomMessage(connection, message);
+                    }
                     return sendOrCloseOnFailure(connection, new WsMessage<>(message.getId(), "echo", message.getTraceId(), Instant.now(), message.getPayload()));
                 })
                 .onErrorResume(IOException.class, ex -> sendOrCloseOnFailure(connection, WsMessage.of("error.bad-message", Collections.singletonMap("message", "Invalid WebSocket message"))));
+    }
+
+    private Mono<Void> handleRoomJoin(SessionConnection connection, WsMessage<JsonNode> message) {
+        String roomId = extractRoomId(message);
+        if (roomId == null || roomId.isBlank()) {
+            return sendOrCloseOnFailure(connection, WsMessage.of("error.room-join", Collections.singletonMap("message", "roomId is required")));
+        }
+        return registry.joinRoom(roomId, connection.sessionId())
+                .then(sendOrCloseOnFailure(connection, new WsMessage<>(message.getId(), "room.joined", message.getTraceId(), Instant.now(), Map.of("roomId", roomId, "userId", connection.userId()))));
+    }
+
+    private Mono<Void> handleRoomLeave(SessionConnection connection, WsMessage<JsonNode> message) {
+        String roomId = extractRoomId(message);
+        if (roomId == null || roomId.isBlank()) {
+            return registry.leaveAllRooms(connection.sessionId())
+                    .then(sendOrCloseOnFailure(connection, new WsMessage<>(message.getId(), "room.left-all", message.getTraceId(), Instant.now(), Collections.emptyMap())));
+        }
+        return registry.leaveRoom(roomId, connection.sessionId())
+                .then(sendOrCloseOnFailure(connection, new WsMessage<>(message.getId(), "room.left", message.getTraceId(), Instant.now(), Map.of("roomId", roomId))));
+    }
+
+    private Mono<Void> handleRoomMessage(SessionConnection connection, WsMessage<JsonNode> message) {
+        String roomId = extractRoomId(message);
+        if (roomId == null || roomId.isBlank()) {
+            return sendOrCloseOnFailure(connection, WsMessage.of("error.room-message", Collections.singletonMap("message", "roomId is required")));
+        }
+        WsMessage<?> roomMsg = new WsMessage<>(message.getId(), "room.message", message.getTraceId(), null, connection.userId(), null, roomId, Instant.now(), message.getPayload());
+        return sender.sendToRoom(roomId, roomMsg).then();
+    }
+
+    private String extractRoomId(WsMessage<JsonNode> message) {
+        if (message.getRoomId() != null && !message.getRoomId().isBlank()) {
+            return message.getRoomId();
+        }
+        JsonNode payload = message.getPayload();
+        if (payload != null && payload.has("roomId")) {
+            return payload.get("roomId").asText();
+        }
+        return null;
     }
 
     private Mono<Void> sendOrCloseOnFailure(SessionConnection connection, WsMessage<?> message) {

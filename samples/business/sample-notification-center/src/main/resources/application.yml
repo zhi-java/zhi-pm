@@ -1,0 +1,23 @@
+server:
+  port: 8082
+
+realtime:
+  websocket:
+    path: /ws
+    outbound-buffer-size: 256
+    auth:
+      enabled: true
+      token-param-name: access_token
+      demo-tokens:
+        alice-token: alice
+        bob-token: bob
+        charlie-token: charlie
+        admin-token: admin
+    heartbeat:
+      enabled: true
+      client-timeout: 60s
+      check-interval: 30s
+    room:
+      enabled: true
+      max-rooms-per-user: 20
+      max-members-per-room: 100000

@@ -12,6 +12,7 @@ public class RealtimeWebSocketProperties {
     private int outboundBufferSize = 256;
     private final Auth auth = new Auth();
     private final Heartbeat heartbeat = new Heartbeat();
+    private final Room room = new Room();
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -21,6 +22,7 @@ public class RealtimeWebSocketProperties {
     public void setOutboundBufferSize(int outboundBufferSize) { this.outboundBufferSize = outboundBufferSize; }
     public Auth getAuth() { return auth; }
     public Heartbeat getHeartbeat() { return heartbeat; }
+    public Room getRoom() { return room; }
 
     public static class Auth {
         private boolean enabled = true;
@@ -50,5 +52,17 @@ public class RealtimeWebSocketProperties {
         public void setClientTimeout(Duration clientTimeout) { this.clientTimeout = clientTimeout; }
         public Duration getCheckInterval() { return checkInterval; }
         public void setCheckInterval(Duration checkInterval) { this.checkInterval = checkInterval; }
+    }
+
+    public static class Room {
+        private boolean enabled = true;
+        private int maxRoomsPerUser = 20;
+        private int maxMembersPerRoom = 100000;
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public int getMaxRoomsPerUser() { return maxRoomsPerUser; }
+        public void setMaxRoomsPerUser(int maxRoomsPerUser) { this.maxRoomsPerUser = maxRoomsPerUser; }
+        public int getMaxMembersPerRoom() { return maxMembersPerRoom; }
+        public void setMaxMembersPerRoom(int maxMembersPerRoom) { this.maxMembersPerRoom = maxMembersPerRoom; }
     }
 }

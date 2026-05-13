@@ -42,8 +42,8 @@ public class ReactiveWebSocketGatewayAutoConfiguration {
     ObjectMapper objectMapper() { return new ObjectMapper(); }
 
     @Bean @ConditionalOnMissingBean
-    GatewayWebSocketHandler gatewayWebSocketHandler(ConnectionRegistry registry, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties) {
-        return new GatewayWebSocketHandler(registry, authenticator, heartbeatService, objectMapper, properties);
+    GatewayWebSocketHandler gatewayWebSocketHandler(ConnectionRegistry registry, MessageSender sender, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties) {
+        return new GatewayWebSocketHandler(registry, sender, authenticator, heartbeatService, objectMapper, properties);
     }
 
     @Bean @ConditionalOnMissingBean(name = "realtimeWebSocketHandlerMapping")

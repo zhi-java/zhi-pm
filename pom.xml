@@ -9,6 +9,8 @@
     <module>zhi-pm-core</module>
     <module>zhi-pm-spring-boot-autoconfigure</module>
     <module>zhi-pm-spring-boot-starter</module>
+    <module>zhi-pm-broker-redis</module>
+    <module>zhi-pm-server</module>
     <module>samples</module>
   </modules>
   <properties>

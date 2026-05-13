@@ -13,4 +13,12 @@ public interface ConnectionRegistry {
     Mono<Long> countConnections();
     Flux<SessionConnection> connections();
     void unregisterNow(String sessionId);
+
+    // Room support
+    Mono<Void> joinRoom(String roomId, String sessionId);
+    Mono<Void> leaveRoom(String roomId, String sessionId);
+    Mono<Void> leaveAllRooms(String sessionId);
+    Flux<SessionConnection> getRoomConnections(String roomId);
+    Mono<Long> countRoomConnections(String roomId);
+    Flux<String> getSessionRooms(String sessionId);
 }

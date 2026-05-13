@@ -2,6 +2,14 @@
   "properties": [
     {"name": "realtime.websocket.enabled", "type": "java.lang.Boolean", "defaultValue": true},
     {"name": "realtime.websocket.path", "type": "java.lang.String", "defaultValue": "/ws"},
-    {"name": "realtime.websocket.outbound-buffer-size", "type": "java.lang.Integer", "defaultValue": 256}
+    {"name": "realtime.websocket.outbound-buffer-size", "type": "java.lang.Integer", "defaultValue": 256},
+    {"name": "realtime.websocket.auth.enabled", "type": "java.lang.Boolean", "defaultValue": true},
+    {"name": "realtime.websocket.auth.token-param-name", "type": "java.lang.String", "defaultValue": "access_token"},
+    {"name": "realtime.websocket.auth.header-name", "type": "java.lang.String", "defaultValue": "Authorization"},
+    {"name": "realtime.websocket.auth.demo-tokens", "type": "java.util.Map<java.lang.String,java.lang.String>"},
+    {"name": "realtime.websocket.auth.accept-non-blank-token-when-no-tokens-configured", "type": "java.lang.Boolean", "defaultValue": false},
+    {"name": "realtime.websocket.heartbeat.enabled", "type": "java.lang.Boolean", "defaultValue": true},
+    {"name": "realtime.websocket.heartbeat.client-timeout", "type": "java.time.Duration", "defaultValue": "60s"},
+    {"name": "realtime.websocket.heartbeat.check-interval", "type": "java.time.Duration", "defaultValue": "30s"}
   ]
 }

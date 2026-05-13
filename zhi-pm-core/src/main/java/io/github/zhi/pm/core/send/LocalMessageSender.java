@@ -34,6 +34,15 @@ public final class LocalMessageSender implements MessageSender {
     }
 
     @Override
+    public Mono<Integer> sendToRoom(String roomId, WsMessage<?> message) {
+        return registry.getRoomConnections(roomId)
+                .flatMap(connection -> send(connection, message))
+                .filter(Boolean.TRUE::equals)
+                .count()
+                .map(Long::intValue);
+    }
+
+    @Override
     public Mono<Integer> broadcast(WsMessage<?> message) {
         return registry.connections()
                 .flatMap(connection -> send(connection, message))

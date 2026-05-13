@@ -32,4 +32,10 @@ public class PushController {
         WsMessage<?> message = new WsMessage<>(null, "sample.broadcast", null, Instant.now(), payload == null ? Collections.emptyMap() : payload);
         return sender.broadcast(message).map(count -> Collections.singletonMap("sent", count));
     }
+
+    @PostMapping("/rooms/{roomId}")
+    public Mono<Map<String, Object>> pushToRoom(@PathVariable("roomId") String roomId, @RequestBody(required = false) Map<String, Object> payload) {
+        WsMessage<?> message = new WsMessage<>(null, "sample.room-push", null, Instant.now(), payload == null ? Collections.emptyMap() : payload);
+        return sender.sendToRoom(roomId, message).map(count -> Map.of("sent", count, "roomId", roomId));
+    }
 }

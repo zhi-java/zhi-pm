@@ -26,7 +26,7 @@
 - 多实例 WebSocket 消息分发
 - 实时监控管理页面
 - Prometheus / Grafana 可观测能力
-- Spring Boot Starter 快速集成
+- Spring Boot Starter 快速集成；JDK 8 业务系统优先通过独立部署的 zhi-pm-server HTTP 接口集成
 
 ---
 
@@ -573,7 +573,9 @@ ws://localhost:8080/ws?ticket=xxx
 ```text
 zhi-pm
 ├── zhi-pm-core
+├── zhi-pm-spring-boot-autoconfigure
 ├── zhi-pm-spring-boot-starter
+├── zhi-pm-server
 ├── zhi-pm-room
 ├── zhi-pm-danmaku
 ├── zhi-pm-chat
@@ -609,7 +611,9 @@ zhi-pm
 | 模块                          | 职责                                   |
 | ----------------------------- | -------------------------------------- |
 | zhi-pm-core                | 核心协议、连接管理、消息路由、发送抽象 |
-| zhi-pm-spring-boot-starter | 自动配置、配置属性、默认 Bean          |
+| zhi-pm-spring-boot-autoconfigure | 自动配置、配置属性、默认 Bean          |
+| zhi-pm-spring-boot-starter | Starter 依赖聚合                      |
+| zhi-pm-server              | 独立部署的 Push Message 网关服务，供旧版 JDK 业务系统通过 HTTP 集成 |
 | zhi-pm-room                | 房间加入、退出、广播、人数统计         |
 | zhi-pm-danmaku             | 弹幕、限流、过滤、禁言、热门房间优化   |
 | zhi-pm-chat                | 单聊、群聊、ACK、历史消息、离线补偿    |
@@ -666,6 +670,19 @@ realtime:
   websocket:
     path: /ws
     max-frame-payload-length: 65536
+    outbound-buffer-size: 256
+    auth:
+      enabled: true
+      token-param-name: access_token
+      header-name: Authorization
+      demo-tokens:
+        alice-token: alice
+        bob-token: bob
+      accept-non-blank-token-when-no-tokens-configured: false
+    heartbeat:
+      enabled: true
+      client-timeout: 60s
+      check-interval: 30s
 
   broker:
     type: redis
@@ -674,18 +691,6 @@ realtime:
     kafka:
       topic: realtime-ws-message
       consumer-group: realtime-ws-gateway
-
-  auth:
-    enabled: true
-    type: token
-    token-param-name: access_token
-    ticket-enabled: true
-    ticket-ttl-seconds: 60
-
-  heartbeat:
-    enabled: true
-    client-timeout-seconds: 60
-    check-interval-seconds: 30
 
   room:
     enabled: true
@@ -887,6 +892,7 @@ License
 
 - zhi-pm-core
 - zhi-pm-spring-boot-starter
+- zhi-pm-server 独立网关服务
 - WebSocketHandler
 - ConnectionRegistry
 - Sinks.Many
@@ -1012,23 +1018,24 @@ License
 第 1 步：创建 Maven 多模块骨架
 第 2 步：实现 zhi-pm-core
 第 3 步：实现 zhi-pm-spring-boot-starter
-第 4 步：实现 sample-basic-echo
-第 5 步：实现连接注册与用户推送
-第 6 步：实现 Token 鉴权
-第 7 步：实现应用层心跳
-第 8 步：实现 zhi-pm-room
-第 9 步：实现 Redis Broker
-第 10 步：实现 sample-presence
-第 11 步：实现 sample-notification-center
-第 12 步：实现 zhi-pm-danmaku
-第 13 步：实现 sample-live-danmaku
-第 14 步：实现 zhi-pm-chat
-第 15 步：实现 sample-chat-room
-第 16 步：实现 observability 指标
-第 17 步：实现 admin-api
-第 18 步：实现 admin-ui
-第 19 步：实现 Kafka Broker
-第 20 步：实现 sample-order-tracking
+第 4 步：实现 zhi-pm-server 独立网关服务
+第 5 步：保留 sample-basic-echo 示例
+第 6 步：实现连接注册与用户推送
+第 7 步：实现 Token 鉴权
+第 8 步：实现应用层心跳
+第 9 步：实现 zhi-pm-room
+第 10 步：实现 Redis Broker
+第 11 步：实现 sample-presence
+第 12 步：实现 sample-notification-center
+第 13 步：实现 zhi-pm-danmaku
+第 14 步：实现 sample-live-danmaku
+第 15 步：实现 zhi-pm-chat
+第 16 步：实现 sample-chat-room
+第 17 步：实现 observability 指标
+第 18 步：实现 admin-api
+第 19 步：实现 admin-ui
+第 20 步：实现 Kafka Broker
+第 21 步：实现 sample-order-tracking
 ```
 
 ---
@@ -1041,7 +1048,9 @@ License
 
 ```text
 zhi-pm-core
+zhi-pm-spring-boot-autoconfigure
 zhi-pm-spring-boot-starter
+zhi-pm-server
 zhi-pm-room
 zhi-pm-danmaku
 zhi-pm-broker-redis
@@ -1096,7 +1105,7 @@ OpenTelemetry
 - 聊天室、弹幕、房间广播需要高性能消息分发。
 - 多实例 WebSocket 需要统一转发机制。
 - 线上 WebSocket 连接和消息需要可观测、可治理。
-- 开发者希望通过 Starter 快速集成，而不是从零写连接管理、心跳、鉴权、房间、监控。
+- Java 21 应用可通过 Starter 集成；JDK 8 业务系统通过独立部署的 zhi-pm-server HTTP 推送接口集成，而不是在进程内嵌入 Starter。
 
 核心卖点：
 

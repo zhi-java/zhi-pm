@@ -21,6 +21,22 @@ class LocalMessageSenderTest {
     }
 
     @Test
+    void sendsToRoom() {
+        InMemoryConnectionRegistry registry = new InMemoryConnectionRegistry();
+        DefaultSessionConnection one = new DefaultSessionConnection("s1", "u1", java.util.Collections.emptyMap(), 4, reason -> Mono.empty());
+        DefaultSessionConnection two = new DefaultSessionConnection("s2", "u2", java.util.Collections.emptyMap(), 4, reason -> Mono.empty());
+        DefaultSessionConnection three = new DefaultSessionConnection("s3", "u3", java.util.Collections.emptyMap(), 4, reason -> Mono.empty());
+        LocalMessageSender sender = new LocalMessageSender(registry);
+        StepVerifier.create(registry.register(one).then(registry.register(two)).then(registry.register(three))
+                .then(registry.joinRoom("room1", "s1"))
+                .then(registry.joinRoom("room1", "s2"))).verifyComplete();
+        StepVerifier.create(sender.sendToRoom("room1", WsMessage.of("room-msg", java.util.Collections.singletonMap("text", "hello"))))
+                .expectNext(2).verifyComplete();
+        StepVerifier.create(sender.sendToRoom("empty-room", WsMessage.of("room-msg", null)))
+                .expectNext(0).verifyComplete();
+    }
+
+    @Test
     void closesConnectionWhenOutboundBufferOverflows() {
         InMemoryConnectionRegistry registry = new InMemoryConnectionRegistry();
         AtomicInteger closes = new AtomicInteger();
