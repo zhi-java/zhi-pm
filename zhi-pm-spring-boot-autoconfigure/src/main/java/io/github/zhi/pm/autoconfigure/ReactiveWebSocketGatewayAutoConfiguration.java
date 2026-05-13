@@ -3,6 +3,7 @@ package io.github.zhi.pm.autoconfigure;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.zhi.pm.core.auth.SimpleTokenWebSocketAuthenticator;
 import io.github.zhi.pm.core.auth.WebSocketAuthenticator;
+import io.github.zhi.pm.core.chat.ChatService;
 import io.github.zhi.pm.core.danmaku.DanmakuService;
 import io.github.zhi.pm.core.heartbeat.HeartbeatService;
 import io.github.zhi.pm.core.registry.ConnectionRegistry;
@@ -44,8 +45,8 @@ public class ReactiveWebSocketGatewayAutoConfiguration {
     ObjectMapper objectMapper() { return new ObjectMapper(); }
 
     @Bean @ConditionalOnMissingBean
-    GatewayWebSocketHandler gatewayWebSocketHandler(ConnectionRegistry registry, MessageSender sender, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties, ObjectProvider<DanmakuService> danmakuServiceProvider) {
-        return new GatewayWebSocketHandler(registry, sender, authenticator, heartbeatService, objectMapper, properties, danmakuServiceProvider.getIfAvailable());
+    GatewayWebSocketHandler gatewayWebSocketHandler(ConnectionRegistry registry, MessageSender sender, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties, ObjectProvider<DanmakuService> danmakuServiceProvider, ObjectProvider<ChatService> chatServiceProvider) {
+        return new GatewayWebSocketHandler(registry, sender, authenticator, heartbeatService, objectMapper, properties, danmakuServiceProvider.getIfAvailable(), chatServiceProvider.getIfAvailable());
     }
 
     @Bean @ConditionalOnMissingBean(name = "realtimeWebSocketHandlerMapping")

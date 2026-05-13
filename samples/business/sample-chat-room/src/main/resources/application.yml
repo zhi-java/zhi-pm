@@ -1,0 +1,28 @@
+server:
+  port: 8084
+
+realtime:
+  websocket:
+    path: /ws
+    outbound-buffer-size: 256
+    auth:
+      enabled: true
+      token-param-name: access_token
+      demo-tokens:
+        alice-token: alice
+        bob-token: bob
+        charlie-token: charlie
+    heartbeat:
+      enabled: true
+      client-timeout: 60s
+      check-interval: 30s
+    room:
+      enabled: true
+      max-rooms-per-user: 50
+      max-members-per-room: 100000
+  chat:
+    enabled: true
+    ack-enabled: true
+    offline-message-enabled: true
+    max-message-length: 2000
+    max-history-per-conversation: 200

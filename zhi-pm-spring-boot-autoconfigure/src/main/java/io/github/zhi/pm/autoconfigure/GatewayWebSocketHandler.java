@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.zhi.pm.core.auth.AuthenticationRequest;
 import io.github.zhi.pm.core.auth.AuthenticationResult;
 import io.github.zhi.pm.core.auth.WebSocketAuthenticator;
+import io.github.zhi.pm.core.chat.ChatService;
 import io.github.zhi.pm.core.danmaku.DanmakuService;
 import io.github.zhi.pm.core.heartbeat.HeartbeatService;
 import io.github.zhi.pm.core.message.WsMessage;
@@ -38,12 +39,14 @@ public final class GatewayWebSocketHandler implements WebSocketHandler {
     private final JavaType messageType;
     @Nullable
     private final DanmakuService danmakuService;
+    @Nullable
+    private final ChatService chatService;
 
     public GatewayWebSocketHandler(ConnectionRegistry registry, MessageSender sender, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties) {
-        this(registry, sender, authenticator, heartbeatService, objectMapper, properties, null);
+        this(registry, sender, authenticator, heartbeatService, objectMapper, properties, null, null);
     }
 
-    public GatewayWebSocketHandler(ConnectionRegistry registry, MessageSender sender, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties, @Nullable DanmakuService danmakuService) {
+    public GatewayWebSocketHandler(ConnectionRegistry registry, MessageSender sender, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties, @Nullable DanmakuService danmakuService, @Nullable ChatService chatService) {
         this.registry = registry;
         this.sender = sender;
         this.authenticator = authenticator;
@@ -52,6 +55,7 @@ public final class GatewayWebSocketHandler implements WebSocketHandler {
         this.properties = properties;
         this.messageType = objectMapper.getTypeFactory().constructParametricType(WsMessage.class, JsonNode.class);
         this.danmakuService = danmakuService;
+        this.chatService = chatService;
     }
 
     @Override
@@ -119,6 +123,9 @@ public final class GatewayWebSocketHandler implements WebSocketHandler {
                     }
                     if (danmakuService != null && danmakuService.isDanmaku(message)) {
                         return danmakuService.processDanmaku(connection, message);
+                    }
+                    if (chatService != null && chatService.isChatMessage(message)) {
+                        return chatService.processChatMessage(connection, message);
                     }
                     return sendOrCloseOnFailure(connection, new WsMessage<>(message.getId(), "echo", message.getTraceId(), Instant.now(), message.getPayload()));
                 })
