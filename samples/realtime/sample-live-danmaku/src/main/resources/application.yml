@@ -1,0 +1,31 @@
+server:
+  port: 8083
+
+realtime:
+  websocket:
+    path: /ws
+    outbound-buffer-size: 512
+    auth:
+      enabled: true
+      token-param-name: access_token
+      demo-tokens:
+        alice-token: alice
+        bob-token: bob
+        charlie-token: charlie
+    heartbeat:
+      enabled: true
+      client-timeout: 60s
+      check-interval: 30s
+    room:
+      enabled: true
+      max-rooms-per-user: 50
+      max-members-per-room: 500000
+  danmaku:
+    enabled: true
+    max-content-length: 100
+    max-message-per-user-per-second: 2
+    max-message-per-room-per-second: 5000
+    drop-when-overloaded: true
+    sensitive-words:
+      - spam
+      - ads

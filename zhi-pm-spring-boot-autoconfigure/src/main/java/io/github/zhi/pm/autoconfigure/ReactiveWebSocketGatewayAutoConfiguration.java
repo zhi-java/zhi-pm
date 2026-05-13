@@ -3,11 +3,13 @@ package io.github.zhi.pm.autoconfigure;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.zhi.pm.core.auth.SimpleTokenWebSocketAuthenticator;
 import io.github.zhi.pm.core.auth.WebSocketAuthenticator;
+import io.github.zhi.pm.core.danmaku.DanmakuService;
 import io.github.zhi.pm.core.heartbeat.HeartbeatService;
 import io.github.zhi.pm.core.registry.ConnectionRegistry;
 import io.github.zhi.pm.core.registry.InMemoryConnectionRegistry;
 import io.github.zhi.pm.core.send.LocalMessageSender;
 import io.github.zhi.pm.core.send.MessageSender;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -42,8 +44,8 @@ public class ReactiveWebSocketGatewayAutoConfiguration {
     ObjectMapper objectMapper() { return new ObjectMapper(); }
 
     @Bean @ConditionalOnMissingBean
-    GatewayWebSocketHandler gatewayWebSocketHandler(ConnectionRegistry registry, MessageSender sender, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties) {
-        return new GatewayWebSocketHandler(registry, sender, authenticator, heartbeatService, objectMapper, properties);
+    GatewayWebSocketHandler gatewayWebSocketHandler(ConnectionRegistry registry, MessageSender sender, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties, ObjectProvider<DanmakuService> danmakuServiceProvider) {
+        return new GatewayWebSocketHandler(registry, sender, authenticator, heartbeatService, objectMapper, properties, danmakuServiceProvider.getIfAvailable());
     }
 
     @Bean @ConditionalOnMissingBean(name = "realtimeWebSocketHandlerMapping")

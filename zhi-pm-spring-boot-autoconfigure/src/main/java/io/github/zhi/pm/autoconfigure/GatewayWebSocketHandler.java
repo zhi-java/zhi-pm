@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.zhi.pm.core.auth.AuthenticationRequest;
 import io.github.zhi.pm.core.auth.AuthenticationResult;
 import io.github.zhi.pm.core.auth.WebSocketAuthenticator;
+import io.github.zhi.pm.core.danmaku.DanmakuService;
 import io.github.zhi.pm.core.heartbeat.HeartbeatService;
 import io.github.zhi.pm.core.message.WsMessage;
 import io.github.zhi.pm.core.registry.ConnectionRegistry;
@@ -18,6 +19,7 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.lang.Nullable;
 import org.springframework.web.reactive.socket.CloseStatus;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
@@ -34,8 +36,14 @@ public final class GatewayWebSocketHandler implements WebSocketHandler {
     private final ObjectMapper objectMapper;
     private final RealtimeWebSocketProperties properties;
     private final JavaType messageType;
+    @Nullable
+    private final DanmakuService danmakuService;
 
     public GatewayWebSocketHandler(ConnectionRegistry registry, MessageSender sender, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties) {
+        this(registry, sender, authenticator, heartbeatService, objectMapper, properties, null);
+    }
+
+    public GatewayWebSocketHandler(ConnectionRegistry registry, MessageSender sender, WebSocketAuthenticator authenticator, HeartbeatService heartbeatService, ObjectMapper objectMapper, RealtimeWebSocketProperties properties, @Nullable DanmakuService danmakuService) {
         this.registry = registry;
         this.sender = sender;
         this.authenticator = authenticator;
@@ -43,6 +51,7 @@ public final class GatewayWebSocketHandler implements WebSocketHandler {
         this.objectMapper = objectMapper;
         this.properties = properties;
         this.messageType = objectMapper.getTypeFactory().constructParametricType(WsMessage.class, JsonNode.class);
+        this.danmakuService = danmakuService;
     }
 
     @Override
@@ -107,6 +116,9 @@ public final class GatewayWebSocketHandler implements WebSocketHandler {
                     }
                     if ("room.message".equals(type)) {
                         return handleRoomMessage(connection, message);
+                    }
+                    if (danmakuService != null && danmakuService.isDanmaku(message)) {
+                        return danmakuService.processDanmaku(connection, message);
                     }
                     return sendOrCloseOnFailure(connection, new WsMessage<>(message.getId(), "echo", message.getTraceId(), Instant.now(), message.getPayload()));
                 })
