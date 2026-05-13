@@ -1,0 +1,41 @@
+server:
+  port: 8085
+
+realtime:
+  websocket:
+    path: /ws
+    outbound-buffer-size: 64
+    auth:
+      enabled: true
+      token-param-name: access_token
+      demo-tokens:
+        admin-token: admin
+        alice-token: alice
+        bob-token: bob
+    heartbeat:
+      enabled: true
+      client-timeout: 60s
+      check-interval: 10s
+  admin:
+    enabled: true
+    path: /admin/api
+    live:
+      enabled: true
+      push-interval-ms: 1000
+      max-connections: 20
+    message-trace:
+      enabled: true
+      sample-rate: 0.01
+      max-buffer-size: 1000
+      include-payload: false
+  observability:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always

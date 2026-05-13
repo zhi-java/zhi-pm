@@ -21,4 +21,5 @@ public interface ConnectionRegistry {
     Flux<SessionConnection> getRoomConnections(String roomId);
     Mono<Long> countRoomConnections(String roomId);
     Flux<String> getSessionRooms(String sessionId);
+    Flux<String> getRoomIds();
 }

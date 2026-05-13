@@ -121,4 +121,9 @@ public final class InMemoryConnectionRegistry implements ConnectionRegistry {
     public Flux<String> getSessionRooms(String sessionId) {
         return Flux.defer(() -> Flux.fromIterable(roomsBySessionId.getOrDefault(sessionId, Collections.emptySet())));
     }
+
+    @Override
+    public Flux<String> getRoomIds() {
+        return Flux.defer(() -> Flux.fromIterable(sessionsByRoomId.keySet()));
+    }
 }

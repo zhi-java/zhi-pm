@@ -12,6 +12,9 @@
     <module>zhi-pm-broker-redis</module>
     <module>zhi-pm-danmaku</module>
     <module>zhi-pm-chat</module>
+    <module>zhi-pm-observability</module>
+    <module>zhi-pm-admin-api</module>
+    <module>zhi-pm-admin-ui</module>
     <module>zhi-pm-server</module>
     <module>samples</module>
   </modules>

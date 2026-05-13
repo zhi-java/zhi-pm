@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zhi PM Admin Console</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+        .header { background: #1a1a2e; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 20px; }
+        .nav { display: flex; gap: 16px; }
+        .nav a { color: #a0a0b0; text-decoration: none; padding: 8px 12px; border-radius: 4px; }
+        .nav a.active { color: white; background: #16213e; }
+        .nav a:hover { color: white; }
+        .container { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stat-card .label { font-size: 14px; color: #666; margin-bottom: 8px; }
+        .stat-card .value { font-size: 32px; font-weight: bold; color: #1a1a2e; }
+        .panel { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 24px; }
+        .panel h2 { font-size: 18px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #eee; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { font-weight: 600; color: #666; font-size: 14px; }
+        td { font-size: 14px; }
+        .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-primary:hover { background: #2980b9; }
+        .empty { text-align: center; padding: 40px; color: #999; }
+        .refresh-btn { float: right; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        #broadcast-form { display: flex; gap: 8px; margin-bottom: 16px; }
+        #broadcast-form input, #broadcast-form select { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        #broadcast-form input[type="text"] { flex: 1; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Zhi PM Admin Console</h1>
+        <div class="nav">
+            <a href="#" class="active" onclick="showTab('dashboard')">Dashboard</a>
+            <a href="#" onclick="showTab('connections')">Connections</a>
+            <a href="#" onclick="showTab('rooms')">Rooms</a>
+            <a href="#" onclick="showTab('broadcast')">Broadcast</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Dashboard Tab -->
+        <div id="tab-dashboard">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="label">Active Connections</div>
+                    <div class="value" id="stat-connections">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Online Users</div>
+                    <div class="value" id="stat-users">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Active Rooms</div>
+                    <div class="value" id="stat-rooms">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Push Success Rate</div>
+                    <div class="value" id="stat-success-rate">-</div>
+                </div>
+            </div>
+            <div class="panel">
+                <h2>Recent Connections</h2>
+                <div id="dashboard-connections">
+                    <div class="empty">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connections Tab -->
+        <div id="tab-connections" style="display:none">
+            <div class="panel">
+                <h2>Active Connections <button class="btn btn-primary refresh-btn" onclick="loadConnections()">Refresh</button></h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Session ID</th>
+                            <th>User ID</th>
+                            <th>Connected At</th>
+                            <th>Last Heartbeat</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="connections-table">
+                        <tr><td colspan="5" class="empty">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Rooms Tab -->
+        <div id="tab-rooms" style="display:none">
+            <div class="panel">
+                <h2>Active Rooms <button class="btn btn-primary refresh-btn" onclick="loadRooms()">Refresh</button></h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Room ID</th>
+                            <th>Members</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rooms-table">
+                        <tr><td colspan="3" class="empty">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Broadcast Tab -->
+        <div id="tab-broadcast" style="display:none">
+            <div class="panel">
+                <h2>Send Broadcast Message</h2>
+                <form id="broadcast-form" onsubmit="sendBroadcast(event)">
+                    <select id="broadcast-type">
+                        <option value="admin.broadcast">Admin Broadcast</option>
+                        <option value="admin.notification">Notification</option>
+                        <option value="admin.alert">Alert</option>
+                    </select>
+                    <input type="text" id="broadcast-message" placeholder="Enter message..." required>
+                    <button type="submit" class="btn btn-primary">Send</button>
+                </form>
+                <div id="broadcast-result"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/admin/api';
+
+        function showTab(tab) {
+            document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+            document.getElementById('tab-' + tab).style.display = 'block';
+            document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if (tab === 'dashboard') loadDashboard();
+            if (tab === 'connections') loadConnections();
+            if (tab === 'rooms') loadRooms();
+        }
+
+        async function loadDashboard() {
+            try {
+                const stats = await fetch(API_BASE + '/stats').then(r => r.json());
+                document.getElementById('stat-connections').textContent = stats.activeConnections || 0;
+                document.getElementById('stat-users').textContent = stats.onlineUsers || 0;
+                document.getElementById('stat-rooms').textContent = stats.activeRooms || 0;
+                document.getElementById('stat-success-rate').textContent = ((stats.pushSuccessRate || 1) * 100).toFixed(1) + '%';
+
+                const connections = await fetch(API_BASE + '/connections').then(r => r.json());
+                const html = connections.length === 0
+                    ? '<div class="empty">No active connections</div>'
+                    : `<table><thead><tr><th>Session ID</th><th>User ID</th><th>Connected At</th></tr></thead><tbody>
+                       ${connections.slice(0, 10).map(c => `<tr><td>${c.sessionId}</td><td>${c.userId}</td><td>${c.connectedAt}</td></tr>`).join('')}
+                       </tbody></table>`;
+                document.getElementById('dashboard-connections').innerHTML = html;
+            } catch (e) {
+                console.error('Failed to load dashboard:', e);
+            }
+        }
+
+        async function loadConnections() {
+            try {
+                const connections = await fetch(API_BASE + '/connections').then(r => r.json());
+                const tbody = document.getElementById('connections-table');
+                if (connections.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty">No active connections</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = connections.map(c => `
+                    <tr>
+                        <td>${c.sessionId}</td>
+                        <td>${c.userId}</td>
+                        <td>${c.connectedAt}</td>
+                        <td>${c.lastHeartbeatAt}</td>
+                        <td><button class="btn btn-danger" onclick="kickConnection('${c.sessionId}')">Kick</button></td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load connections:', e);
+            }
+        }
+
+        async function loadRooms() {
+            try {
+                const rooms = await fetch(API_BASE + '/rooms').then(r => r.json());
+                const tbody = document.getElementById('rooms-table');
+                if (rooms.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="empty">No active rooms</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = rooms.map(r => `
+                    <tr>
+                        <td>${r.roomId}</td>
+                        <td>${r.memberCount}</td>
+                        <td><button class="btn btn-primary" onclick="viewRoomMembers('${r.roomId}')">View Members</button></td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load rooms:', e);
+            }
+        }
+
+        async function kickConnection(sessionId) {
+            if (!confirm('Kick connection ' + sessionId + '?')) return;
+            try {
+                await fetch(API_BASE + '/connections/' + sessionId, { method: 'DELETE' });
+                loadConnections();
+            } catch (e) {
+                console.error('Failed to kick connection:', e);
+            }
+        }
+
+        async function viewRoomMembers(roomId) {
+            try {
+                const members = await fetch(API_BASE + '/rooms/' + roomId + '/members').then(r => r.json());
+                alert('Room ' + roomId + ' members:\n' + members.map(m => m.userId).join('\n'));
+            } catch (e) {
+                console.error('Failed to load room members:', e);
+            }
+        }
+
+        async function sendBroadcast(e) {
+            e.preventDefault();
+            const type = document.getElementById('broadcast-type').value;
+            const message = document.getElementById('broadcast-message').value;
+            try {
+                const result = await fetch(API_BASE + '/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type, payload: { message } })
+                }).then(r => r.json());
+                document.getElementById('broadcast-result').innerHTML =
+                    '<div class="badge badge-success">Sent to ' + result.sent + ' connections</div>';
+                document.getElementById('broadcast-message').value = '';
+            } catch (e) {
+                document.getElementById('broadcast-result').innerHTML =
+                    '<div class="badge badge-warning">Failed to send broadcast</div>';
+            }
+        }
+
+        // Auto-refresh dashboard every 5 seconds
+        setInterval(() => {
+            if (document.getElementById('tab-dashboard').style.display !== 'none') {
+                loadDashboard();
+            }
+        }, 5000);
+
+        // Initial load
+        loadDashboard();
+    </script>
+</body>
+</html>
