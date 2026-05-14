@@ -754,6 +754,7 @@
             this.maxReconnectDelay = 30000;
             this.connected = false;
             this.shouldConnect = true;
+            this._hasConnected = false; // 首次连接标记
         }
 
         connect() {
@@ -764,7 +765,11 @@
                 this.reconnectDelay = 1000;
                 updateWsStatus();
                 Store.addLog('CONNECT', `${this.name}: ${this.userId}`, this.name);
-                showToast(`${this.name} 已连接: ${this.userId}`, 'success');
+                // 仅首次连接显示 Toast，自动重连不显示
+                if (!this._hasConnected) {
+                    showToast(`${this.name} 已连接: ${this.userId}`, 'success');
+                    this._hasConnected = true;
+                }
             };
             this.ws.onmessage = (e) => {
                 try {
@@ -900,58 +905,60 @@
     function render_presence() {
         const panel = document.getElementById('panel-presence');
         panel.innerHTML = `
-            <div class="card">
+            <div class="card" style="margin-bottom:12px">
                 <div class="card-title"><i data-lucide="activity" style="width:20px;height:20px"></i> 在线状态</div>
-                <p style="color:var(--text-secondary);margin-bottom:16px;font-size:14px">
-                    点击用户卡片连接/断开 WebSocket，发送推送通知和广播消息
+                <p style="color:var(--text-secondary);font-size:14px">
+                    每个用户独立窗口，点击「连接」建立 WebSocket，可单独发送消息或广播
                 </p>
-                <div class="user-cards" id="presence-users"></div>
             </div>
-            <div class="card-grid">
+            <div class="card-grid" style="grid-template-columns:repeat(auto-fit, minmax(320px, 1fr))">
                 <div class="stat-card"><div class="stat-label">连接数</div><div class="stat-value" id="presence-stat-conn">-</div></div>
                 <div class="stat-card"><div class="stat-label">在线用户</div><div class="stat-value" id="presence-stat-users">-</div></div>
             </div>
-            <div class="card">
-                <div class="card-title">发送通知</div>
+            <div id="presence-user-windows" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(360px, 1fr));gap:16px;margin-top:16px"></div>
+            <div class="card" style="margin-top:16px">
+                <div class="card-title"><i data-lucide="radio" style="width:20px;height:20px"></i> 广播消息</div>
                 <div class="form-row">
-                    <select class="select" id="presence-target-user" style="max-width:150px">
-                        <option value="alice">Alice</option><option value="bob">Bob</option><option value="charlie">Charlie</option>
-                    </select>
-                    <input class="input" id="presence-push-msg" placeholder="消息内容..." value="Hello from showcase!">
-                    <button class="btn btn-primary" onclick="presencePush()"><i data-lucide="send" style="width:14px;height:14px"></i> 发送</button>
-                </div>
-                <div class="form-row">
-                    <input class="input" id="presence-broadcast-msg" placeholder="广播消息..." value="Broadcast to all!">
+                    <input class="input" id="presence-broadcast-msg" placeholder="广播消息给所有已连接用户..." value="系统通知：服务器将于今晚 22:00 维护">
                     <button class="btn btn-ghost" onclick="presenceBroadcast()"><i data-lucide="radio" style="width:14px;height:14px"></i> 广播</button>
                 </div>
             </div>
-            <div class="log-panel">
-                <div class="log-header">消息日志 <button class="btn btn-sm btn-ghost" onclick="clearLog('presence')">清空</button></div>
-                <div class="log-body" id="presence-log"></div>
-            </div>
         `;
         lucide.createIcons();
-        renderPresenceUsers();
+        renderPresenceUserWindows();
         presenceRefreshStats();
     }
 
-    function renderPresenceUsers() {
+    function renderPresenceUserWindows() {
         const users = ['alice', 'bob', 'charlie'];
-        const container = document.getElementById('presence-users');
+        const container = document.getElementById('presence-user-windows');
+        if (!container) return;
         container.innerHTML = users.map(u => {
             const client = Store.wsClients['presence-' + u];
             const online = client && client.connected;
             return `
-                <div class="user-card ${online ? 'online' : ''}" onclick="presenceToggleUser('${u}')">
-                    <div class="user-avatar">${u[0].toUpperCase()}</div>
-                    <div class="user-info">
-                        <div class="user-name">${u.charAt(0).toUpperCase() + u.slice(1)}</div>
-                        <div class="user-status">${online ? '在线' : '离线'}</div>
+                <div class="card" style="margin-bottom:0;border:${online ? '2px solid var(--success)' : '1px solid var(--border)'}">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                        <div class="user-avatar" style="background:${online ? 'var(--success)' : 'var(--text-secondary)'}">${u[0].toUpperCase()}</div>
+                        <div style="flex:1">
+                            <div style="font-weight:600;font-size:15px">${u.charAt(0).toUpperCase() + u.slice(1)}</div>
+                            <div style="font-size:12px;color:var(--text-secondary)">${online ? '已连接 WebSocket' : '未连接'}</div>
+                        </div>
+                        <button class="btn ${online ? 'btn-danger' : 'btn-primary'} btn-sm" onclick="presenceToggleUser('${u}')">
+                            ${online ? '断开' : '连接'}
+                        </button>
                     </div>
-                    <span class="badge ${online ? 'badge-success' : 'badge-error'}">${online ? 'ON' : 'OFF'}</span>
+                    <div class="form-row" style="margin-bottom:8px">
+                        <input class="input" id="presence-msg-${u}" placeholder="发送给 ${u}..." value="你好 ${u}！" ${online ? '' : 'disabled'}>
+                        <button class="btn btn-primary btn-sm" onclick="presencePushTo('${u}')" ${online ? '' : 'disabled'}><i data-lucide="send" style="width:12px;height:12px"></i></button>
+                    </div>
+                    <div style="max-height:120px;overflow-y:auto;background:var(--log-bg);border-radius:8px;padding:8px;font-size:12px;font-family:'SF Mono',monospace" id="presence-log-${u}">
+                        <div style="color:var(--text-secondary)">等待消息...</div>
+                    </div>
                 </div>
             `;
         }).join('');
+        lucide.createIcons();
     }
 
     function presenceToggleUser(userId) {
@@ -962,26 +969,45 @@
         } else {
             const client = new WsClient('presence', `${PRESENCE_WS}?access_token=${userId}-token`, userId);
             client.on('*', (msg) => {
-                renderPresenceLog(msg);
-                showToast(`[${userId}] ${msg.type}: ${JSON.stringify(msg.payload || {}).substring(0, 50)}`, 'info');
+                renderPresenceLog(userId, msg);
             });
             Store.wsClients[key] = client;
             client.connect();
         }
-        setTimeout(() => { renderPresenceUsers(); presenceRefreshStats(); }, 500);
+        setTimeout(() => { renderPresenceUserWindows(); presenceRefreshStats(); }, 500);
     }
 
-    async function presencePush() {
-        const userId = document.getElementById('presence-target-user').value;
-        const message = document.getElementById('presence-push-msg').value;
+    async function presencePushTo(userId) {
+        const input = document.getElementById('presence-msg-' + userId);
+        const message = input ? input.value : '';
+        if (!message) return;
         await api(`/api/push/users/${userId}`, { method: 'POST', body: JSON.stringify({ message }) });
         showToast(`已推送给 ${userId}`, 'success');
+        // 在用户日志中显示已发送
+        const log = document.getElementById('presence-log-' + userId);
+        if (log) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">${new Date().toLocaleTimeString()}</span><span class="log-type" style="color:var(--success)">SENT</span><span class="log-data">${message.substring(0, 60)}</span>`;
+            log.prepend(entry);
+        }
     }
 
     async function presenceBroadcast() {
         const message = document.getElementById('presence-broadcast-msg').value;
+        if (!message) return;
         const result = await api(`/api/push/broadcast`, { method: 'POST', body: JSON.stringify({ message }) });
         showToast(`广播已发送至 ${result?.sent || 0} 个连接`, 'success');
+        // 在所有已连接用户的日志中显示
+        ['alice', 'bob', 'charlie'].forEach(u => {
+            const log = document.getElementById('presence-log-' + u);
+            if (log && Store.wsClients['presence-' + u]?.connected) {
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.innerHTML = `<span class="log-time">${new Date().toLocaleTimeString()}</span><span class="log-type" style="color:var(--warning)">BROADCAST</span><span class="log-data">${message.substring(0, 60)}</span>`;
+                log.prepend(entry);
+            }
+        });
     }
 
     async function presenceRefreshStats() {
@@ -996,12 +1022,14 @@
         document.getElementById('presence-stat-users').textContent = onlineCount;
     }
 
-    function renderPresenceLog(msg) {
-        const log = document.getElementById('presence-log');
+    function renderPresenceLog(userId, msg) {
+        const log = document.getElementById('presence-log-' + userId);
         if (!log) return;
+        // 清除占位文本
+        if (log.children.length === 1 && log.children[0].textContent === '等待消息...') log.innerHTML = '';
         const entry = document.createElement('div');
         entry.className = 'log-entry';
-        entry.innerHTML = `<span class="log-time">${new Date().toLocaleTimeString()}</span><span class="log-type">${msg.type}</span><span class="log-data">${JSON.stringify(msg.payload || {}).substring(0, 100)}</span>`;
+        entry.innerHTML = `<span class="log-time">${new Date().toLocaleTimeString()}</span><span class="log-type">${msg.type}</span><span class="log-data">${JSON.stringify(msg.payload || {}).substring(0, 80)}</span>`;
         log.prepend(entry);
     }
 
@@ -1014,6 +1042,9 @@
     // 消息推送模块
     // ============================================================
     function render_push() {
+        const existing = Store.wsClients['push'];
+        const connected = existing && existing.connected;
+        const selectedUser = connected ? existing.userId : '';
         const panel = document.getElementById('panel-push');
         panel.innerHTML = `
             <div class="card">
@@ -1024,9 +1055,11 @@
                 <div class="form-row">
                     <select class="select" id="push-user" style="max-width:150px" onchange="pushConnect()">
                         <option value="">请选择用户...</option>
-                        <option value="alice">Alice</option><option value="bob">Bob</option><option value="charlie">Charlie</option>
+                        <option value="alice" ${selectedUser === 'alice' ? 'selected' : ''}>Alice</option>
+                        <option value="bob" ${selectedUser === 'bob' ? 'selected' : ''}>Bob</option>
+                        <option value="charlie" ${selectedUser === 'charlie' ? 'selected' : ''}>Charlie</option>
                     </select>
-                    <span id="push-status" class="badge badge-error">未连接</span>
+                    <span id="push-status" class="badge ${connected ? 'badge-success' : 'badge-error'}">${connected ? '已连接: ' + selectedUser : '未连接'}</span>
                 </div>
             </div>
             <div class="card">
@@ -1101,6 +1134,9 @@
     let danmakuUser = null;
 
     function render_danmaku() {
+        const existing = Store.wsClients['danmaku'];
+        const connected = existing && existing.connected;
+        const selectedUser = connected ? existing.userId : (danmakuUser || '');
         const panel = document.getElementById('panel-danmaku');
         panel.innerHTML = `
             <div class="card">
@@ -1111,9 +1147,11 @@
                 <div class="form-row">
                     <select class="select" id="danmaku-user" style="max-width:150px" onchange="danmakuConnect()">
                         <option value="">请选择用户...</option>
-                        <option value="alice">Alice</option><option value="bob">Bob</option><option value="charlie">Charlie</option>
+                        <option value="alice" ${selectedUser === 'alice' ? 'selected' : ''}>Alice</option>
+                        <option value="bob" ${selectedUser === 'bob' ? 'selected' : ''}>Bob</option>
+                        <option value="charlie" ${selectedUser === 'charlie' ? 'selected' : ''}>Charlie</option>
                     </select>
-                    <span id="danmaku-status" class="badge badge-error">未连接</span>
+                    <span id="danmaku-status" class="badge ${connected ? 'badge-success' : 'badge-error'}">${connected ? selectedUser + ' 已加入 live-room-1' : '未连接'}</span>
                     <span id="danmaku-count" class="badge badge-info">0 人观看</span>
                 </div>
             </div>
@@ -1267,6 +1305,9 @@
     let chatMessages = {};
 
     function render_chat() {
+        const existing = Store.wsClients['chat'];
+        const connected = existing && existing.connected;
+        const selectedUser = connected ? existing.userId : (chatUser || '');
         const panel = document.getElementById('panel-chat');
         panel.innerHTML = `
             <div class="card" style="padding:12px;margin-bottom:12px">
@@ -1274,9 +1315,11 @@
                     <span style="font-weight:600;font-size:14px">当前用户：</span>
                     <select class="select" id="chat-user" style="max-width:150px" onchange="chatSwitchUser()">
                         <option value="">请选择用户...</option>
-                        <option value="alice">Alice</option><option value="bob">Bob</option><option value="charlie">Charlie</option>
+                        <option value="alice" ${selectedUser === 'alice' ? 'selected' : ''}>Alice</option>
+                        <option value="bob" ${selectedUser === 'bob' ? 'selected' : ''}>Bob</option>
+                        <option value="charlie" ${selectedUser === 'charlie' ? 'selected' : ''}>Charlie</option>
                     </select>
-                    <span id="chat-status" class="badge badge-error">离线</span>
+                    <span id="chat-status" class="badge ${connected ? 'badge-success' : 'badge-error'}">${connected ? selectedUser : '离线'}</span>
                 </div>
             </div>
             <div class="chat-layout">
@@ -1420,6 +1463,9 @@
     const ORDER_STATUSES = ['CREATED', 'PAID', 'SHIPPING', 'DELIVERED', 'COMPLETED'];
 
     function render_orders() {
+        const existing = Store.wsClients['orders'];
+        const connected = existing && existing.connected;
+        const selectedUser = connected ? existing.userId : (orderUser || '');
         const panel = document.getElementById('panel-orders');
         panel.innerHTML = `
             <div class="card">
@@ -1430,9 +1476,11 @@
                 <div class="form-row">
                     <select class="select" id="order-user" style="max-width:150px" onchange="orderConnect()">
                         <option value="">请选择用户...</option>
-                        <option value="alice">Alice</option><option value="bob">Bob</option><option value="charlie">Charlie</option>
+                        <option value="alice" ${selectedUser === 'alice' ? 'selected' : ''}>Alice</option>
+                        <option value="bob" ${selectedUser === 'bob' ? 'selected' : ''}>Bob</option>
+                        <option value="charlie" ${selectedUser === 'charlie' ? 'selected' : ''}>Charlie</option>
                     </select>
-                    <span id="order-status" class="badge badge-error">离线</span>
+                    <span id="order-status" class="badge ${connected ? 'badge-success' : 'badge-error'}">${connected ? selectedUser : '离线'}</span>
                 </div>
             </div>
             <div class="card">
