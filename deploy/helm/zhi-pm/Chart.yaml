@@ -1,0 +1,19 @@
+apiVersion: v2
+name: zhi-pm
+description: A Helm chart for deploying Zhi Push Message - Reactive WebSocket Gateway
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - websocket
+  - gateway
+  - realtime
+  - reactive
+  - spring-boot
+  - push-message
+home: https://github.com/zhi-pm/zhi-pm
+sources:
+  - https://github.com/zhi-pm/zhi-pm
+maintainers:
+  - name: zhi-pm
+    url: https://github.com/zhi-pm

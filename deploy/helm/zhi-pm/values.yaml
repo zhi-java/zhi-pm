@@ -1,0 +1,151 @@
+# Default values for zhi-pm
+# This is a YAML-formatted file.
+
+# Number of replicas
+replicaCount: 1
+
+image:
+  # Container image repository
+  repository: zhi-pm/zhi-pm-server
+  # Image pull policy
+  pullPolicy: IfNotPresent
+  # Overrides the image tag (default: Chart.appVersion)
+  tag: ""
+
+# Image pull secrets
+imagePullSecrets: []
+
+# Override chart name
+nameOverride: ""
+fullnameOverride: ""
+
+# Service account configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: zhi-pm.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Resource limits
+resources:
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Liveness probe
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Readiness probe
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Application configuration
+config:
+  # Server port
+  server:
+    port: 8080
+
+  # WebSocket configuration
+  websocket:
+    path: /ws
+    outboundBufferSize: 256
+
+  # Authentication
+  auth:
+    enabled: true
+    tokenParamName: access_token
+
+  # Heartbeat
+  heartbeat:
+    enabled: true
+    clientTimeout: 60s
+    checkInterval: 10s
+
+  # Broker configuration
+  broker:
+    type: redis
+    redis:
+      topic: "realtime:ws:message"
+
+# Redis dependency
+redis:
+  enabled: true
+  host: redis-master
+  port: 6379
+  password: ""
+  database: 0
+
+# External Redis (if not using built-in Redis chart)
+externalRedis:
+  host: ""
+  port: 6379
+  password: ""
+  database: 0

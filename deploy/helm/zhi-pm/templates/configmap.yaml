@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zhi-pm.fullname" . }}
+  labels:
+    {{- include "zhi-pm.labels" . | nindent 4 }}
+data:
+  application-kubernetes.yml: |
+    server:
+      port: {{ .Values.config.server.port }}
+
+    realtime:
+      websocket:
+        path: {{ .Values.config.websocket.path }}
+        outbound-buffer-size: {{ .Values.config.websocket.outboundBufferSize }}
+        auth:
+          enabled: {{ .Values.config.auth.enabled }}
+          token-param-name: {{ .Values.config.auth.tokenParamName }}
+        heartbeat:
+          enabled: {{ .Values.config.heartbeat.enabled }}
+          client-timeout: {{ .Values.config.heartbeat.clientTimeout }}
+          check-interval: {{ .Values.config.heartbeat.checkInterval }}
+
+      broker:
+        type: {{ .Values.config.broker.type }}
+        redis:
+          topic: {{ .Values.config.broker.redis.topic }}
+
+    spring:
+      data:
+        redis:
+          host: {{ include "zhi-pm.redisHost" . }}
+          port: {{ include "zhi-pm.redisPort" . }}

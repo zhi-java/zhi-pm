@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zhi-pm.fullname" . }}
+  labels:
+    {{- include "zhi-pm.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "zhi-pm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "zhi-pm.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "zhi-pm.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.config.server.port }}
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "kubernetes"
+            - name: SERVER_PORT
+              value: {{ .Values.config.server.port | quote }}
+            - name: REALTIME_WEBSOCKET_PATH
+              value: {{ .Values.config.websocket.path | quote }}
+            - name: REALTIME_WEBSOCKET_OUTBOUND_BUFFER_SIZE
+              value: {{ .Values.config.websocket.outboundBufferSize | quote }}
+            - name: REALTIME_WEBSOCKET_AUTH_ENABLED
+              value: {{ .Values.config.auth.enabled | quote }}
+            - name: REALTIME_WEBSOCKET_AUTH_TOKEN_PARAM_NAME
+              value: {{ .Values.config.auth.tokenParamName | quote }}
+            - name: REALTIME_WEBSOCKET_HEARTBEAT_ENABLED
+              value: {{ .Values.config.heartbeat.enabled | quote }}
+            - name: REALTIME_WEBSOCKET_HEARTBEAT_CLIENT_TIMEOUT
+              value: {{ .Values.config.heartbeat.clientTimeout | quote }}
+            - name: REALTIME_WEBSOCKET_HEARTBEAT_CHECK_INTERVAL
+              value: {{ .Values.config.heartbeat.checkInterval | quote }}
+            - name: REALTIME_BROKER_TYPE
+              value: {{ .Values.config.broker.type | quote }}
+            - name: REALTIME_BROKER_REDIS_TOPIC
+              value: {{ .Values.config.broker.redis.topic | quote }}
+            - name: SPRING_DATA_REDIS_HOST
+              value: {{ include "zhi-pm.redisHost" . | quote }}
+            - name: SPRING_DATA_REDIS_PORT
+              value: {{ include "zhi-pm.redisPort" . | quote }}
+            {{- if .Values.externalRedis.password }}
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zhi-pm.fullname" . }}-redis
+                  key: redis-password
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            - name: logs
+              mountPath: /app/logs
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "zhi-pm.fullname" . }}
+        - name: logs
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

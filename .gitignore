@@ -39,3 +39,12 @@ build/
 .cursor/
 
 .worktrees/
+
+### Docker ###
+docker-compose.override.yml
+.docker/
+
+### Helm ###
+deploy/helm/*/charts/
+deploy/helm/*/tmpcharts/
+*.tgz
