@@ -770,6 +770,7 @@
                     showToast(`${this.name} 已连接: ${this.userId}`, 'success');
                     this._hasConnected = true;
                 }
+                if (this._onOpenFn) this._onOpenFn();
             };
             this.ws.onmessage = (e) => {
                 try {
@@ -795,14 +796,20 @@
             this.ws.onerror = () => {};
         }
 
-        send(type, payload) {
+        send(type, payload, options = {}) {
             if (!this.ws || this.ws.readyState !== 1) {
                 showToast('未连接', 'error');
                 return;
             }
             const msg = { type, payload, from: this.userId, timestamp: new Date().toISOString() };
+            if (options.roomId) msg.roomId = options.roomId;
+            if (options.to) msg.to = options.to;
             this.ws.send(JSON.stringify(msg));
             Store.addLog('SEND', `${type}: ${JSON.stringify(payload || {}).substring(0, 80)}`, this.name);
+        }
+
+        onOpen(fn) {
+            this._onOpenFn = fn;
         }
 
         on(type, handler) {
@@ -1210,41 +1217,33 @@
     // ============================================================
     // 弹幕直播模块
     // ============================================================
-    let danmakuUser = null;
+    const DANMAKU_USERS = ['alice', 'bob', 'charlie'];
+    const DANMAKU_ROOM = 'live-room-1';
+    let danmakuSendAs = '';
 
     function render_danmaku() {
-        const existing = Store.wsClients['danmaku'];
-        const connected = existing && existing.connected;
-        const selectedUser = connected ? existing.userId : (danmakuUser || '');
         const panel = document.getElementById('panel-danmaku');
         panel.innerHTML = `
-            <div class="card">
+            <div class="card" style="margin-bottom:12px">
                 <div class="card-title"><i data-lucide="radio" style="width:20px;height:20px"></i> 直播弹幕</div>
-                <p style="color:var(--text-secondary);margin-bottom:16px;font-size:14px">
+                <p style="color:var(--text-secondary);font-size:14px">
                     模拟直播间飘屏弹幕，限速 5 条/用户/秒，支持禁言管理
                 </p>
-                <div class="form-row">
-                    <select class="select" id="danmaku-user" style="max-width:150px" onchange="danmakuConnect()">
-                        <option value="">请选择用户...</option>
-                        <option value="alice" ${selectedUser === 'alice' ? 'selected' : ''}>Alice</option>
-                        <option value="bob" ${selectedUser === 'bob' ? 'selected' : ''}>Bob</option>
-                        <option value="charlie" ${selectedUser === 'charlie' ? 'selected' : ''}>Charlie</option>
-                    </select>
-                    <span id="danmaku-status" class="badge ${connected ? 'badge-success' : 'badge-error'}">${connected ? selectedUser + ' 已加入 live-room-1' : '未连接'}</span>
-                    <span id="danmaku-count" class="badge badge-info">0 人观看</span>
-                </div>
             </div>
+            <!-- 用户连接区 -->
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="danmaku-user-bar"></div>
+            <!-- 直播画面 + 弹幕 -->
             <div class="danmaku-area" id="danmaku-screen">
                 <div class="video-simulation"></div>
                 <div class="danmaku-overlay">
                     <div style="display:flex;align-items:center;gap:8px">
                         <span class="live-badge">LIVE</span>
-                        <span style="font-size:16px;font-weight:600">直播中：直播间 live-room-1</span>
+                        <span style="font-size:16px;font-weight:600">直播间 ${DANMAKU_ROOM}</span>
                     </div>
                     <div class="live-info" style="margin-top:8px">
                         <span>主播: ZhiPM官方</span>
                         <span id="danmaku-viewer-info">0 人观看</span>
-                        <span class="like-btn" id="danmaku-like-btn" onclick="danmakuLike()">
+                        <span class="like-btn" onclick="danmakuLike()">
                             <i data-lucide="heart" style="width:14px;height:14px"></i>
                             <span id="danmaku-like-count">0</span>
                         </span>
@@ -1253,64 +1252,128 @@
                 <div class="video-controls">
                     <span style="cursor:pointer" title="播放/暂停">▶</span>
                     <div class="video-progress"><div class="video-progress-bar"></div></div>
-                    <span>00:00</span>
-                    <span>/</span>
-                    <span>99:59</span>
+                    <span id="danmaku-time">00:00</span><span>/</span><span>99:59</span>
                     <span style="margin-left:8px">🔊</span>
                 </div>
             </div>
-            <div class="danmaku-input">
-                <input class="input" id="danmaku-content" placeholder="发送弹幕..." onkeydown="if(event.key==='Enter')danmakuSend()">
-                <button class="btn btn-primary" onclick="danmakuSend()"><i data-lucide="send" style="width:14px;height:14px"></i></button>
+            <!-- 发送弹幕 -->
+            <div class="card" style="margin-top:12px">
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+                    <span style="font-size:13px;font-weight:500;color:var(--text-secondary)">发送身份：</span>
+                    <div id="danmaku-send-as" style="display:flex;gap:4px"></div>
+                </div>
+                <div class="form-row" style="margin-bottom:0">
+                    <input class="input" id="danmaku-content" placeholder="发送弹幕..." onkeydown="if(event.key==='Enter')danmakuSend()">
+                    <button class="btn btn-primary" onclick="danmakuSend()"><i data-lucide="send" style="width:14px;height:14px"></i> 发送</button>
+                </div>
             </div>
-            <div class="card-grid">
-                <div class="card">
-                    <div class="card-title" style="font-size:15px">已禁言用户</div>
-                    <div id="danmaku-muted"><span style="color:var(--text-secondary);font-size:13px">无</span></div>
-                    <div class="form-row" style="margin-top:12px">
-                        <input class="input" id="danmaku-mute-user" placeholder="用户 ID" style="max-width:120px">
+            <!-- 管理面板 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+                <div class="card" style="margin-bottom:0">
+                    <div class="card-title" style="font-size:15px">禁言管理</div>
+                    <div id="danmaku-muted" style="margin-bottom:10px"><span style="color:var(--text-secondary);font-size:13px">无禁言用户</span></div>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <select class="select" id="danmaku-mute-user" style="max-width:120px">
+                            ${DANMAKU_USERS.map(u => `<option value="${u}">${u}</option>`).join('')}
+                        </select>
                         <button class="btn btn-sm btn-danger" onclick="danmakuMute()">禁言</button>
-                        <button class="btn btn-sm btn-ghost" onclick="danmakuUnmute()">解除禁言</button>
+                        <button class="btn btn-sm btn-ghost" onclick="danmakuUnmute()">解除</button>
                     </div>
                 </div>
-                <div class="card">
-                    <div class="card-title" style="font-size:15px">限流信息</div>
-                    <p style="font-size:13px;color:var(--text-secondary)">每用户限速 5 条/秒，内容过滤敏感词（spam、ads）</p>
-                    <div id="danmaku-rate-info" style="margin-top:8px;font-size:13px"></div>
+                <div class="card" style="margin-bottom:0">
+                    <div class="card-title" style="font-size:15px">房间信息</div>
+                    <div style="font-size:13px;color:var(--text-secondary);line-height:1.8">
+                        <div>房间 ID: <strong>${DANMAKU_ROOM}</strong></div>
+                        <div>限速: 每用户 5 条/秒</div>
+                        <div>内容过滤: spam、ads 等敏感词</div>
+                        <div>在线人数: <span id="danmaku-room-count">-</span></div>
+                    </div>
                 </div>
             </div>
         `;
         lucide.createIcons();
+        renderDanmakuUserBar();
+        renderDanmakuSendAs();
         danmakuRefreshMuted();
         danmakuRefreshCount();
     }
 
-    function danmakuConnect() {
-        const userId = document.getElementById('danmaku-user').value;
-        if (Store.wsClients['danmaku']) Store.wsClients['danmaku'].disconnect();
-        if (!userId) return;
-        danmakuUser = userId;
+    function renderDanmakuUserBar() {
+        const bar = document.getElementById('danmaku-user-bar');
+        if (!bar) return;
+        bar.innerHTML = DANMAKU_USERS.map(u => {
+            const key = 'danmaku-' + u;
+            const client = Store.wsClients[key];
+            const online = client && client.connected;
+            return `
+                <div class="user-card ${online ? 'online' : ''}" style="min-width:140px;padding:10px 14px;cursor:pointer" onclick="danmakuToggleUser('${u}')">
+                    <div class="user-avatar" style="width:32px;height:32px;font-size:13px;background:${online ? 'var(--success)' : 'var(--text-secondary)'}">${u[0].toUpperCase()}</div>
+                    <div>
+                        <div style="font-size:13px;font-weight:500">${u.charAt(0).toUpperCase() + u.slice(1)}</div>
+                        <div style="font-size:11px;color:var(--text-secondary)">${online ? '已连接' : '离线'}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderDanmakuSendAs() {
+        const container = document.getElementById('danmaku-send-as');
+        if (!container) return;
+        const connectedUsers = DANMAKU_USERS.filter(u => Store.wsClients['danmaku-' + u]?.connected);
+        if (connectedUsers.length === 0) {
+            danmakuSendAs = '';
+            container.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">请先连接用户</span>';
+            return;
+        }
+        if (!connectedUsers.includes(danmakuSendAs)) danmakuSendAs = connectedUsers[0];
+        container.innerHTML = connectedUsers.map(u => `
+            <button class="btn btn-sm ${danmakuSendAs === u ? 'btn-primary' : 'btn-ghost'}" onclick="danmakuSetSendAs('${u}')">${u}</button>
+        `).join('');
+    }
+
+    function danmakuSetSendAs(userId) {
+        danmakuSendAs = userId;
+        renderDanmakuSendAs();
+    }
+
+    function danmakuToggleUser(userId) {
+        const key = 'danmaku-' + userId;
+        const existing = Store.wsClients[key];
+        if (existing && existing.connected) {
+            existing.disconnect();
+            delete Store.wsClients[key];
+            renderDanmakuUserBar();
+            renderDanmakuSendAs();
+            danmakuRefreshCount();
+            return;
+        }
         const client = new WsClient('danmaku', `${WS_BASE}/ws?access_token=${userId}-token`, userId);
+        // 监听弹幕消息
         client.on('danmaku.message', (msg) => {
             const content = msg.payload?.content || '';
             const sender = msg.from || 'unknown';
             spawnDanmaku(`${sender}: ${content}`);
         });
-        client.on('*', (msg) => {
-            if (msg.type === 'danmaku.error') {
-                showToast(`弹幕错误: ${msg.payload?.message || '未知'}`, 'error');
-            }
+        // 监听房间加入确认
+        client.on('room.joined', (msg) => {
+            showToast(`${userId} 已加入 ${msg.payload?.roomId || DANMAKU_ROOM}`, 'success');
+            danmakuRefreshCount();
         });
-        Store.wsClients['danmaku'] = client;
+        // 错误处理
+        client.on('danmaku.error', (msg) => {
+            showToast(`[${userId}] 弹幕错误: ${msg.payload?.message || '未知'}`, 'error');
+        });
+        // 连接成功后自动加入房间
+        client.onOpen(() => {
+            client.send('room.join', { roomId: DANMAKU_ROOM }, { roomId: DANMAKU_ROOM });
+            renderDanmakuUserBar();
+            renderDanmakuSendAs();
+            danmakuRefreshCount();
+        });
+        Store.wsClients[key] = client;
         client.connect();
-        client.send('room.join', { roomId: 'live-room-1' });
-        setTimeout(() => {
-            const status = document.getElementById('danmaku-status');
-            if (status) {
-                status.textContent = client.connected ? `${userId} 已加入 live-room-1` : '连接中...';
-                status.className = client.connected ? 'badge badge-success' : 'badge badge-warning';
-            }
-        }, 500);
+        renderDanmakuUserBar();
     }
 
     function spawnDanmaku(text) {
@@ -1319,7 +1382,8 @@
         const el = document.createElement('div');
         el.className = 'danmaku-item';
         el.textContent = text;
-        el.style.top = Math.random() * 250 + 20 + 'px';
+        el.style.top = Math.random() * 220 + 30 + 'px';
+        el.style.color = `hsl(${Math.random() * 360}, 80%, 75%)`;
         screen.appendChild(el);
         setTimeout(() => el.remove(), 8000);
     }
@@ -1328,19 +1392,23 @@
         const input = document.getElementById('danmaku-content');
         const content = input.value.trim();
         if (!content) return;
-        const client = Store.wsClients['danmaku'];
-        if (!client || !client.connected) {
-            showToast('请先连接', 'warning');
+        if (!danmakuSendAs) {
+            showToast('请先连接用户', 'warning');
             return;
         }
-        client.send('danmaku.send', { roomId: 'live-room-1', content, contentType: 'text' });
+        const client = Store.wsClients['danmaku-' + danmakuSendAs];
+        if (!client || !client.connected) {
+            showToast('当前用户未连接', 'warning');
+            return;
+        }
+        client.send('danmaku.send', { content, contentType: 'text' }, { roomId: DANMAKU_ROOM });
         input.value = '';
     }
 
     async function danmakuMute() {
         const userId = document.getElementById('danmaku-mute-user').value;
         if (!userId) return;
-        await api(`/api/danmaku/rooms/live-room-1/mute/${userId}`, { method: 'POST' });
+        await api(`/api/danmaku/rooms/${DANMAKU_ROOM}/mute/${userId}`, { method: 'POST' });
         showToast(`已禁言 ${userId}`, 'warning');
         danmakuRefreshMuted();
     }
@@ -1348,27 +1416,28 @@
     async function danmakuUnmute() {
         const userId = document.getElementById('danmaku-mute-user').value;
         if (!userId) return;
-        await api(`/api/danmaku/rooms/live-room-1/unmute/${userId}`, { method: 'POST' });
+        await api(`/api/danmaku/rooms/${DANMAKU_ROOM}/unmute/${userId}`, { method: 'POST' });
         showToast(`已解除禁言 ${userId}`, 'success');
         danmakuRefreshMuted();
     }
 
     async function danmakuRefreshMuted() {
-        const data = await api('/api/danmaku/rooms/live-room-1/muted');
+        const data = await api(`/api/danmaku/rooms/${DANMAKU_ROOM}/muted`);
         const el = document.getElementById('danmaku-muted');
-        if (el && data) {
-            const users = data.mutedUsers || [];
-            el.innerHTML = users.length ? users.map(u => `<span class="badge badge-warning" style="margin-right:4px">${u}</span>`).join('') : '<span style="color:var(--text-secondary);font-size:13px">无</span>';
-        }
+        if (!el || !data) return;
+        const users = data.mutedUsers || [];
+        el.innerHTML = users.length
+            ? users.map(u => `<span class="badge badge-warning" style="margin-right:4px;margin-bottom:4px;display:inline-flex">${u}</span>`).join('')
+            : '<span style="color:var(--text-secondary);font-size:13px">无禁言用户</span>';
     }
 
     async function danmakuRefreshCount() {
-        const data = await api('/api/presence/rooms/live-room-1/count');
+        const data = await api(`/api/presence/rooms/${DANMAKU_ROOM}/count`);
         const count = data?.count || 0;
-        const el = document.getElementById('danmaku-count');
-        if (el && data) el.textContent = `${count} 人观看`;
         const viewerInfo = document.getElementById('danmaku-viewer-info');
         if (viewerInfo) viewerInfo.textContent = `${count} 人观看`;
+        const roomCount = document.getElementById('danmaku-room-count');
+        if (roomCount) roomCount.textContent = count;
     }
 
     // ============================================================
