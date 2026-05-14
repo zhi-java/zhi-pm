@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zhi PM — 响应式 WebSocket 网关演示</title>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -409,32 +410,60 @@
         /* Danmaku */
         .danmaku-area {
             position: relative;
-            height: 300px;
-            background: var(--danmaku-bg);
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            max-height: 480px;
+            background: #000;
             border-radius: 12px;
             overflow: hidden;
-            margin-bottom: 16px;
+        }
+        .danmaku-area video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
         }
         .danmaku-overlay {
             position: absolute;
             top: 12px;
             left: 16px;
-            color: rgba(255,255,255,0.8);
+            color: rgba(255,255,255,0.9);
             font-size: 14px;
             font-weight: 500;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .danmaku-layer {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 4;
         }
         .danmaku-item {
             position: absolute;
             white-space: nowrap;
             color: #fff;
-            font-size: 18px;
-            font-weight: 500;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            font-size: 22px;
+            font-weight: 600;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.7), 0 0 6px rgba(0,0,0,0.4);
             animation: danmakuFloat 8s linear forwards;
+            pointer-events: none;
         }
         @keyframes danmakuFloat {
-            from { transform: translateX(100vw); }
-            to { transform: translateX(-100%); }
+            from { transform: translateX(100%); }
+            to { transform: translateX(-100vw); }
+        }
+        .danmaku-video-fallback {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255,255,255,0.5);
+            font-size: 14px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
         }
         .danmaku-input { display: flex; gap: 8px; margin-bottom: 16px; }
         .danmaku-input .input { flex: 1; }
@@ -562,48 +591,6 @@
         ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
 
         /* 视频模拟 */
-        .video-simulation {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(45deg, #1a1a2e, #16213e, #0f3460, #533483);
-            background-size: 400% 400%;
-            animation: videoShift 15s ease infinite;
-        }
-        @keyframes videoShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        .video-controls {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(transparent, rgba(0,0,0,0.7));
-            padding: 20px 12px 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #fff;
-            font-size: 12px;
-        }
-        .video-progress {
-            flex: 1;
-            height: 3px;
-            background: rgba(255,255,255,0.3);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-        .video-progress-bar {
-            height: 100%;
-            background: #007AFF;
-            width: 0%;
-            animation: progressLoop 30s linear infinite;
-        }
-        @keyframes progressLoop {
-            from { width: 0%; }
-            to { width: 100%; }
-        }
         .live-info {
             display: flex;
             gap: 12px;
@@ -1220,51 +1207,51 @@
     const DANMAKU_USERS = ['alice', 'bob', 'charlie'];
     const DANMAKU_ROOM = 'live-room-1';
     let danmakuSendAs = '';
+    let danmakuHls = null;
+    let danmakuLikeCount = 0;
+
+    const DANMAKU_CHANNELS = [
+        { name: 'CCTV-1 综合', url: 'https://cctvalih5ca.v.myalicdn.com/live/cctv1_2/index.m3u8' },
+        { name: 'CCTV-13 新闻', url: 'https://cctvalih5ca.v.myalicdn.com/live/cctv13_2/index.m3u8' },
+        { name: 'CCTV-5 体育', url: 'https://cctvalih5ca.v.myalicdn.com/live/cctv5_2/index.m3u8' },
+    ];
 
     function render_danmaku() {
         const panel = document.getElementById('panel-danmaku');
         panel.innerHTML = `
-            <div class="card" style="margin-bottom:12px">
-                <div class="card-title"><i data-lucide="radio" style="width:20px;height:20px"></i> 直播弹幕</div>
-                <p style="color:var(--text-secondary);font-size:14px">
-                    模拟直播间飘屏弹幕，限速 5 条/用户/秒，支持禁言管理
-                </p>
-            </div>
-            <!-- 用户连接区 -->
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="danmaku-user-bar"></div>
             <!-- 直播画面 + 弹幕 -->
             <div class="danmaku-area" id="danmaku-screen">
-                <div class="video-simulation"></div>
+                <video id="danmaku-video" muted autoplay playsinline></video>
+                <div class="danmaku-layer" id="danmaku-layer"></div>
                 <div class="danmaku-overlay">
                     <div style="display:flex;align-items:center;gap:8px">
                         <span class="live-badge">LIVE</span>
-                        <span style="font-size:16px;font-weight:600">直播间 ${DANMAKU_ROOM}</span>
+                        <select class="select" id="danmaku-channel" style="background:rgba(0,0,0,0.5);color:#fff;border:none;font-size:13px;padding:4px 8px;border-radius:6px;max-width:160px" onchange="danmakuSwitchChannel()">
+                            ${DANMAKU_CHANNELS.map((c, i) => `<option value="${i}">${c.name}</option>`).join('')}
+                        </select>
                     </div>
-                    <div class="live-info" style="margin-top:8px">
-                        <span>主播: ZhiPM官方</span>
+                    <div class="live-info" style="margin-top:6px">
                         <span id="danmaku-viewer-info">0 人观看</span>
-                        <span class="like-btn" onclick="danmakuLike()">
+                        <span class="like-btn" onclick="danmakuLike()" style="pointer-events:auto">
                             <i data-lucide="heart" style="width:14px;height:14px"></i>
                             <span id="danmaku-like-count">0</span>
                         </span>
                     </div>
                 </div>
-                <div class="video-controls">
-                    <span style="cursor:pointer" title="播放/暂停">▶</span>
-                    <div class="video-progress"><div class="video-progress-bar"></div></div>
-                    <span id="danmaku-time">00:00</span><span>/</span><span>99:59</span>
-                    <span style="margin-left:8px">🔊</span>
-                </div>
             </div>
-            <!-- 发送弹幕 -->
-            <div class="card" style="margin-top:12px">
-                <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-                    <span style="font-size:13px;font-weight:500;color:var(--text-secondary)">发送身份：</span>
-                    <div id="danmaku-send-as" style="display:flex;gap:4px"></div>
-                </div>
-                <div class="form-row" style="margin-bottom:0">
-                    <input class="input" id="danmaku-content" placeholder="发送弹幕..." onkeydown="if(event.key==='Enter')danmakuSend()">
-                    <button class="btn btn-primary" onclick="danmakuSend()"><i data-lucide="send" style="width:14px;height:14px"></i> 发送</button>
+            <!-- 用户连接 + 发送弹幕 -->
+            <div class="card" style="margin-top:16px;margin-bottom:0">
+                <div class="card-title" style="font-size:15px;margin-bottom:12px"><i data-lucide="users" style="width:18px;height:18px"></i> 用户连接</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="danmaku-user-bar"></div>
+                <div style="border-top:1px solid var(--border);padding-top:12px">
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+                        <span style="font-size:13px;font-weight:500;color:var(--text-secondary)">发送身份：</span>
+                        <div id="danmaku-send-as" style="display:flex;gap:4px"></div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:0">
+                        <input class="input" id="danmaku-content" placeholder="发送弹幕..." onkeydown="if(event.key==='Enter')danmakuSend()">
+                        <button class="btn btn-primary" onclick="danmakuSend()"><i data-lucide="send" style="width:14px;height:14px"></i> 发送</button>
+                    </div>
                 </div>
             </div>
             <!-- 管理面板 -->
@@ -1292,10 +1279,61 @@
             </div>
         `;
         lucide.createIcons();
+        initDanmakuVideo();
         renderDanmakuUserBar();
         renderDanmakuSendAs();
         danmakuRefreshMuted();
         danmakuRefreshCount();
+    }
+
+    function initDanmakuVideo() {
+        const video = document.getElementById('danmaku-video');
+        if (!video) return;
+        const streamUrl = DANMAKU_CHANNELS[0].url;
+        if (Hls.isSupported()) {
+            danmakuHls = new Hls({ liveSyncDurationCount: 3, liveMaxLatencyDurationCount: 6 });
+            danmakuHls.loadSource(streamUrl);
+            danmakuHls.attachMedia(video);
+            danmakuHls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+            danmakuHls.on(Hls.Events.ERROR, (_, data) => {
+                if (data.fatal) {
+                    console.warn('HLS fatal error:', data.type, data.details);
+                    showDanmakuFallback();
+                }
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = streamUrl;
+            video.addEventListener('loadedmetadata', () => video.play().catch(() => {}));
+        } else {
+            showDanmakuFallback();
+        }
+    }
+
+    function showDanmakuFallback() {
+        const screen = document.getElementById('danmaku-screen');
+        if (!screen || screen.querySelector('.danmaku-video-fallback')) return;
+        const fb = document.createElement('div');
+        fb.className = 'danmaku-video-fallback';
+        fb.innerHTML = '<div style="font-size:40px;margin-bottom:8px">📡</div><div>直播流加载失败</div><div style="font-size:12px;margin-top:4px">请检查网络或更换频道</div>';
+        screen.insertBefore(fb, screen.firstChild);
+    }
+
+    function danmakuSwitchChannel() {
+        const sel = document.getElementById('danmaku-channel');
+        const idx = parseInt(sel.value);
+        const ch = DANMAKU_CHANNELS[idx];
+        const video = document.getElementById('danmaku-video');
+        if (!video || !ch) return;
+        // 移除 fallback
+        const fb = document.querySelector('.danmaku-video-fallback');
+        if (fb) fb.remove();
+        if (danmakuHls) {
+            danmakuHls.loadSource(ch.url);
+            danmakuHls.attachMedia(video);
+        } else {
+            video.src = ch.url;
+        }
+        video.play().catch(() => {});
     }
 
     function renderDanmakuUserBar() {
@@ -1349,22 +1387,18 @@
             return;
         }
         const client = new WsClient('danmaku', `${WS_BASE}/ws?access_token=${userId}-token`, userId);
-        // 监听弹幕消息
         client.on('danmaku.message', (msg) => {
             const content = msg.payload?.content || '';
             const sender = msg.from || 'unknown';
             spawnDanmaku(`${sender}: ${content}`);
         });
-        // 监听房间加入确认
         client.on('room.joined', (msg) => {
             showToast(`${userId} 已加入 ${msg.payload?.roomId || DANMAKU_ROOM}`, 'success');
             danmakuRefreshCount();
         });
-        // 错误处理
         client.on('danmaku.error', (msg) => {
             showToast(`[${userId}] 弹幕错误: ${msg.payload?.message || '未知'}`, 'error');
         });
-        // 连接成功后自动加入房间
         client.onOpen(() => {
             client.send('room.join', { roomId: DANMAKU_ROOM }, { roomId: DANMAKU_ROOM });
             renderDanmakuUserBar();
@@ -1377,14 +1411,15 @@
     }
 
     function spawnDanmaku(text) {
-        const screen = document.getElementById('danmaku-screen');
-        if (!screen) return;
+        const layer = document.getElementById('danmaku-layer');
+        if (!layer) return;
         const el = document.createElement('div');
         el.className = 'danmaku-item';
         el.textContent = text;
-        el.style.top = Math.random() * 220 + 30 + 'px';
-        el.style.color = `hsl(${Math.random() * 360}, 80%, 75%)`;
-        screen.appendChild(el);
+        // 随机垂直位置（上方 10% ~ 75% 区域）
+        el.style.top = (10 + Math.random() * 65) + '%';
+        el.style.color = `hsl(${Math.random() * 360}, 85%, 75%)`;
+        layer.appendChild(el);
         setTimeout(() => el.remove(), 8000);
     }
 
@@ -1402,7 +1437,15 @@
             return;
         }
         client.send('danmaku.send', { content, contentType: 'text' }, { roomId: DANMAKU_ROOM });
+        // 本地立即显示
+        spawnDanmaku(`${danmakuSendAs}: ${content}`);
         input.value = '';
+    }
+
+    function danmakuLike() {
+        danmakuLikeCount++;
+        const el = document.getElementById('danmaku-like-count');
+        if (el) el.textContent = danmakuLikeCount;
     }
 
     async function danmakuMute() {
@@ -1932,13 +1975,7 @@
         ctx.fill();
     }
 
-    // 弹幕点赞
-    let danmakuLikeCount = 0;
-    function danmakuLike() {
-        danmakuLikeCount++;
-        const el = document.getElementById('danmaku-like-count');
-        if (el) el.textContent = danmakuLikeCount;
-    }
+    // 弹幕点赞（已移至弹幕模块内）
 
     // 生成示例订单
     async function orderGenerateSamples() {
