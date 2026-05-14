@@ -407,6 +407,70 @@
         }
         .chat-input .input { flex: 1; }
 
+        /* Chat card layout */
+        .chat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+        .chat-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 520px;
+            transition: border-color 0.3s;
+        }
+        .chat-card.online { border-color: var(--success); }
+        .chat-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--input-bg);
+        }
+        .chat-card-header .user-avatar {
+            width: 36px;
+            height: 36px;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .chat-card-header .user-info { flex: 1; min-width: 0; }
+        .chat-card-header .user-name { font-weight: 600; font-size: 14px; }
+        .chat-card-header .user-status { font-size: 11px; color: var(--text-secondary); }
+        .chat-card-conv-list {
+            max-height: 90px;
+            overflow-y: auto;
+            border-bottom: 1px solid var(--border);
+        }
+        .chat-card-conv-item {
+            padding: 8px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.15s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-card-conv-item:hover { background: var(--sidebar-hover); }
+        .chat-card-conv-item.active { background: var(--sidebar-active); font-weight: 500; }
+        .chat-card-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .chat-card-messages .message-bubble { max-width: 80%; font-size: 13px; padding: 8px 12px; }
+        .chat-card-input {
+            padding: 10px 12px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 6px;
+        }
+        .chat-card-input .input { flex: 1; font-size: 13px; padding: 8px 10px; }
+
         /* Danmaku */
         .danmaku-area {
             position: relative;
@@ -1558,167 +1622,192 @@
     }
 
     // ============================================================
-    // 聊天室模块
+    // 聊天室模块 — 多用户卡片式
     // ============================================================
-    let chatUser = null;
+    const CHAT_USERS = ['alice', 'bob', 'charlie'];
+    const CHAT_USER_COLORS = {
+        alice: { bg: '#FF6B6B', light: 'rgba(255,107,107,0.15)' },
+        bob: { bg: '#4ECDC4', light: 'rgba(78,205,196,0.15)' },
+        charlie: { bg: '#C780FF', light: 'rgba(199,128,255,0.15)' }
+    };
     let chatConversations = [
-        { id: 'conv-alice-bob', name: 'Alice 与 Bob', type: 'single', members: ['alice', 'bob'] },
-        { id: 'conv-alice-charlie', name: 'Alice 与 Charlie', type: 'single', members: ['alice', 'charlie'] },
+        { id: 'conv-alice-bob', name: 'Alice ↔ Bob', type: 'single', members: ['alice', 'bob'] },
+        { id: 'conv-alice-charlie', name: 'Alice ↔ Charlie', type: 'single', members: ['alice', 'charlie'] },
+        { id: 'conv-bob-charlie', name: 'Bob ↔ Charlie', type: 'single', members: ['bob', 'charlie'] },
         { id: 'group-team', name: '团队群聊', type: 'group', members: ['alice', 'bob', 'charlie'] }
     ];
-    let activeConv = null;
     let chatMessages = {};
+    let chatActiveConv = {}; // { userId: convId }
 
     function render_chat() {
-        const existing = Store.wsClients['chat'];
-        const connected = existing && existing.connected;
-        const selectedUser = connected ? existing.userId : (chatUser || '');
         const panel = document.getElementById('panel-chat');
         panel.innerHTML = `
-            <div class="card" style="padding:12px;margin-bottom:12px">
-                <div class="form-row" style="margin-bottom:0">
-                    <span style="font-weight:600;font-size:14px">当前用户：</span>
-                    <select class="select" id="chat-user" style="max-width:150px" onchange="chatSwitchUser()">
-                        <option value="">请选择用户...</option>
-                        <option value="alice" ${selectedUser === 'alice' ? 'selected' : ''}>Alice</option>
-                        <option value="bob" ${selectedUser === 'bob' ? 'selected' : ''}>Bob</option>
-                        <option value="charlie" ${selectedUser === 'charlie' ? 'selected' : ''}>Charlie</option>
-                    </select>
-                    <span id="chat-status" class="badge ${connected ? 'badge-success' : 'badge-error'}">${connected ? selectedUser : '离线'}</span>
-                </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                <div style="font-size:13px;color:var(--text-secondary)">点击用户卡片连接，选择会话后即可互发消息</div>
+                <button class="btn btn-sm btn-ghost" onclick="chatReconnectAll()"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i> 全部重连</button>
             </div>
-            <div class="chat-layout">
-                <div class="chat-sidebar">
-                    <div style="padding:12px 16px;font-weight:600;font-size:14px;border-bottom:1px solid var(--border)">会话列表</div>
-                    <div id="chat-conv-list"></div>
-                </div>
-                <div class="chat-main">
-                    <div class="chat-header" id="chat-header">请选择会话</div>
-                    <div class="chat-messages" id="chat-messages"><div style="text-align:center;color:var(--text-secondary);padding:40px">请选择会话开始聊天</div></div>
-                    <div class="chat-input">
-                        <input class="input" id="chat-input" placeholder="输入消息..." onkeydown="if(event.key==='Enter')chatSendMessage()">
-                        <button class="btn btn-primary" onclick="chatSendMessage()"><i data-lucide="send" style="width:14px;height:14px"></i></button>
-                    </div>
-                </div>
-            </div>
+            <div class="chat-cards" id="chat-cards"></div>
         `;
         lucide.createIcons();
-        renderConvList();
+        renderChatCards();
     }
 
-    function renderConvList() {
-        const list = document.getElementById('chat-conv-list');
-        if (!list) return;
-        list.innerHTML = chatConversations.map(c => {
-            const msgs = chatMessages[c.id] || [];
-            const last = msgs.length > 0 ? msgs[msgs.length - 1].content.substring(0, 30) : '暂无消息';
+    function renderChatCards() {
+        const container = document.getElementById('chat-cards');
+        if (!container) return;
+        container.innerHTML = CHAT_USERS.map(userId => {
+            const key = 'chat-' + userId;
+            const client = Store.wsClients[key];
+            const online = client && client.connected;
+            const colors = CHAT_USER_COLORS[userId];
+            const activeConvId = chatActiveConv[userId] || '';
             return `
-                <div class="conv-item ${activeConv === c.id ? 'active' : ''}" onclick="chatSelectConv('${c.id}')">
-                    <div>
-                        <div class="conv-name">${c.name}</div>
-                        <div class="conv-preview">${last}</div>
+                <div class="chat-card ${online ? 'online' : ''}" id="chat-card-${userId}">
+                    <div class="chat-card-header">
+                        <div class="user-avatar" style="background:${online ? colors.bg : 'var(--text-secondary)'}">${userId[0].toUpperCase()}</div>
+                        <div class="user-info">
+                            <div class="user-name">${userId.charAt(0).toUpperCase() + userId.slice(1)}</div>
+                            <div class="user-status" style="color:${online ? colors.bg : 'var(--text-secondary)'}">${online ? '已连接' : '离线'}</div>
+                        </div>
+                        <button class="btn btn-sm ${online ? 'btn-danger' : 'btn-primary'}" onclick="chatToggleUser('${userId}')">${online ? '断开' : '连接'}</button>
                     </div>
+                    <div class="chat-card-conv-list" id="chat-convs-${userId}">
+                        ${online ? renderChatConvList(userId, activeConvId) : '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text-secondary)">请先连接</div>'}
+                    </div>
+                    <div class="chat-card-messages" id="chat-msgs-${userId}">
+                        ${online && activeConvId ? renderChatCardMessages(userId, activeConvId) : '<div style="text-align:center;color:var(--text-secondary);padding:20px;font-size:13px">选择会话开始聊天</div>'}
+                    </div>
+                    <div class="chat-card-input">
+                        <input class="input" id="chat-input-${userId}" placeholder="输入消息..." ${!online ? 'disabled' : ''} onkeydown="if(event.key==='Enter')chatSendAs('${userId}')">
+                        <button class="btn btn-sm btn-primary" onclick="chatSendAs('${userId}')" ${!online ? 'disabled' : ''}>
+                            <i data-lucide="send" style="width:13px;height:13px"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        lucide.createIcons();
+    }
+
+    function renderChatConvList(userId, activeConvId) {
+        const userConvs = chatConversations.filter(c => c.members.includes(userId));
+        if (userConvs.length === 0) return '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text-secondary)">无可用会话</div>';
+        return userConvs.map(c => {
+            const msgs = chatMessages[c.id] || [];
+            const last = msgs.length > 0 ? msgs[msgs.length - 1].content.substring(0, 20) : '暂无消息';
+            const isActive = activeConvId === c.id;
+            return `
+                <div class="chat-card-conv-item ${isActive ? 'active' : ''}" onclick="chatSelectConv('${userId}', '${c.id}')">
+                    <span>${c.name}</span>
+                    <span style="font-size:11px;color:var(--text-secondary);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${last}</span>
                 </div>
             `;
         }).join('');
     }
 
-    function chatSwitchUser() {
-        const userId = document.getElementById('chat-user').value;
-        if (Store.wsClients['chat']) Store.wsClients['chat'].disconnect();
-        if (!userId) return;
-        chatUser = userId;
+    function renderChatCardMessages(userId, convId) {
+        const msgs = chatMessages[convId] || [];
+        if (msgs.length === 0) return '<div style="text-align:center;color:var(--text-secondary);padding:20px;font-size:13px">暂无消息</div>';
+        return msgs.map(m => `
+            <div class="message-bubble ${m.sender === userId ? 'sent' : 'received'}">
+                ${m.sender !== userId ? `<div style="font-size:11px;font-weight:600;margin-bottom:2px;color:${(CHAT_USER_COLORS[m.sender] || {}).bg || 'var(--accent)'}">${m.sender}</div>` : ''}
+                <div>${m.content}</div>
+                <div class="message-meta">${m.time}</div>
+            </div>
+        `).join('');
+    }
+
+    function chatToggleUser(userId) {
+        const key = 'chat-' + userId;
+        if (Store.wsClients[key] && Store.wsClients[key].connected) {
+            Store.wsClients[key].disconnect();
+            delete Store.wsClients[key];
+            chatActiveConv[userId] = '';
+            renderChatCards();
+            return;
+        }
         const client = new WsClient('chat', `${WS_BASE}/ws?access_token=${userId}-token`, userId);
         client.on('chat.message', (msg) => {
             const p = msg.payload || {};
             const convId = p.conversationId;
             if (!chatMessages[convId]) chatMessages[convId] = [];
             chatMessages[convId].push({ id: p.messageId, sender: p.senderId, content: p.content, time: new Date().toLocaleTimeString() });
-            if (activeConv === convId) renderChatMessages(convId);
-            renderConvList();
-            // 自动确认
+            renderChatCards();
             client.send('chat.ack', { messageId: p.messageId });
         });
-        Store.wsClients['chat'] = client;
+        Store.wsClients[key] = client;
+        client.onOpen(() => {
+            // 连接成功后自动加入群聊房间
+            chatConversations.filter(c => c.type === 'group' && c.members.includes(userId)).forEach(c => {
+                client.send('room.join', { roomId: c.id });
+            });
+            renderChatCards();
+        });
         client.connect();
-        setTimeout(() => {
-            const status = document.getElementById('chat-status');
-            if (status) {
-                status.textContent = client.connected ? userId : '连接中...';
-                status.className = client.connected ? 'badge badge-success' : 'badge badge-warning';
-            }
-        }, 500);
+        setTimeout(() => renderChatCards(), 600);
     }
 
-    function chatSelectConv(convId) {
-        activeConv = convId;
+    function chatSelectConv(userId, convId) {
+        chatActiveConv[userId] = convId;
+        const key = 'chat-' + userId;
+        const client = Store.wsClients[key];
         const conv = chatConversations.find(c => c.id === convId);
-        document.getElementById('chat-header').textContent = conv ? conv.name : convId;
-        // 群聊加入房间
-        if (conv && conv.type === 'group' && Store.wsClients['chat']) {
-            Store.wsClients['chat'].send('room.join', { roomId: convId });
+        if (conv && conv.type === 'group' && client && client.connected) {
+            client.send('room.join', { roomId: convId });
         }
-        // 发送已读回执
-        if (Store.wsClients['chat']) {
-            Store.wsClients['chat'].send('chat.read', { conversationId: convId });
+        if (client && client.connected) {
+            client.send('chat.read', { conversationId: convId });
         }
-        renderConvList();
-        renderChatMessages(convId);
-        // 加载历史
-        loadChatHistory(convId);
+        renderChatCards();
+        loadChatCardHistory(userId, convId);
     }
 
-    async function loadChatHistory(convId) {
+    async function loadChatCardHistory(userId, convId) {
         const data = await api(`/api/chat/conversations/${convId}/history?limit=20`);
         if (data && data.messages) {
             chatMessages[convId] = data.messages.map(m => ({
                 id: m.messageId, sender: m.senderId, content: m.content,
                 time: new Date(m.createdAt).toLocaleTimeString()
             }));
-            renderChatMessages(convId);
+            renderChatCards();
         }
     }
 
-    function renderChatMessages(convId) {
-        const container = document.getElementById('chat-messages');
-        if (!container) return;
-        const msgs = chatMessages[convId] || [];
-        if (msgs.length === 0) {
-            container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px">暂无消息</div>';
-            return;
-        }
-        container.innerHTML = msgs.map(m => `
-            <div class="message-bubble ${m.sender === chatUser ? 'sent' : 'received'}">
-                ${m.sender !== chatUser ? `<div style="font-size:12px;font-weight:600;margin-bottom:2px">${m.sender}</div>` : ''}
-                <div>${m.content}</div>
-                <div class="message-meta">${m.time}</div>
-            </div>
-        `).join('');
-        container.scrollTop = container.scrollHeight;
-    }
-
-    function chatSendMessage() {
-        const input = document.getElementById('chat-input');
+    function chatSendAs(userId) {
+        const input = document.getElementById('chat-input-' + userId);
         const content = input.value.trim();
-        if (!content || !activeConv || !chatUser) return;
-        const client = Store.wsClients['chat'];
-        if (!client || !client.connected) {
-            showToast('请先连接', 'warning');
+        if (!content) return;
+        const convId = chatActiveConv[userId];
+        if (!convId) {
+            showToast('请先选择会话', 'warning');
             return;
         }
-        const conv = chatConversations.find(c => c.id === activeConv);
+        const key = 'chat-' + userId;
+        const client = Store.wsClients[key];
+        if (!client || !client.connected) {
+            showToast(userId + ' 未连接', 'warning');
+            return;
+        }
+        const conv = chatConversations.find(c => c.id === convId);
         client.send('chat.send', {
-            conversationId: activeConv,
+            conversationId: convId,
             conversationType: conv ? conv.type : 'single',
             content,
             contentType: 'text'
         });
-        // 乐观更新本地消息
-        if (!chatMessages[activeConv]) chatMessages[activeConv] = [];
-        chatMessages[activeConv].push({ id: 'local-' + Date.now(), sender: chatUser, content, time: new Date().toLocaleTimeString() });
-        renderChatMessages(activeConv);
-        renderConvList();
+        if (!chatMessages[convId]) chatMessages[convId] = [];
+        chatMessages[convId].push({ id: 'local-' + Date.now(), sender: userId, content, time: new Date().toLocaleTimeString() });
+        renderChatCards();
         input.value = '';
+    }
+
+    function chatReconnectAll() {
+        CHAT_USERS.forEach(userId => {
+            const key = 'chat-' + userId;
+            if (!Store.wsClients[key] || !Store.wsClients[key].connected) {
+                chatToggleUser(userId);
+            }
+        });
     }
 
     // ============================================================
