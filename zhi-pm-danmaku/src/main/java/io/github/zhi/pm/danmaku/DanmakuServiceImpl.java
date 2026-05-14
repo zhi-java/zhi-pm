@@ -1,5 +1,6 @@
 package io.github.zhi.pm.danmaku;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.github.zhi.pm.core.danmaku.DanmakuService;
 import io.github.zhi.pm.core.message.WsMessage;
 import io.github.zhi.pm.core.registry.ConnectionRegistry;
@@ -84,6 +85,9 @@ public class DanmakuServiceImpl implements DanmakuService {
             Object rid = map.get("roomId");
             return rid instanceof String s ? s : null;
         }
+        if (payload instanceof JsonNode node && node.has("roomId")) {
+            return node.get("roomId").asText(null);
+        }
         return null;
     }
 
@@ -92,6 +96,9 @@ public class DanmakuServiceImpl implements DanmakuService {
         if (payload instanceof Map<?, ?> map) {
             Object c = map.get("content");
             return c instanceof String s ? s : null;
+        }
+        if (payload instanceof JsonNode node && node.has("content")) {
+            return node.get("content").asText(null);
         }
         return null;
     }
