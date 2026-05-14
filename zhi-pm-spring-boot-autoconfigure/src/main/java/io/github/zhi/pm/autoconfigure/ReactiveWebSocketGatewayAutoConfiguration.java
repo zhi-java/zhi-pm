@@ -48,7 +48,24 @@ public class ReactiveWebSocketGatewayAutoConfiguration {
             return JwtWebSocketAuthenticator.withHmacSecret(jwt.getSecret(), jwt.getIssuer(),
                     jwt.getAudience(), jwt.getUserIdClaim(), jwt.isAllowGuestWhenNoToken());
         }
-        throw new IllegalArgumentException("realtime.websocket.auth.jwt.secret is required for JWT authentication");
+        if (jwt.getPublicKey() != null && !jwt.getPublicKey().isBlank()) {
+            java.security.KeyFactory kf;
+            java.security.PublicKey publicKey;
+            try {
+                kf = java.security.KeyFactory.getInstance("RSA");
+                String pem = jwt.getPublicKey()
+                        .replace("-----BEGIN PUBLIC KEY-----", "")
+                        .replace("-----END PUBLIC KEY-----", "")
+                        .replaceAll("\\s+", "");
+                publicKey = kf.generatePublic(new java.security.spec.X509EncodedKeySpec(
+                        java.util.Base64.getDecoder().decode(pem)));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Failed to parse realtime.websocket.auth.jwt.public-key", e);
+            }
+            return JwtWebSocketAuthenticator.withSigningKey(publicKey, jwt.getIssuer(),
+                    jwt.getAudience(), jwt.getUserIdClaim(), jwt.isAllowGuestWhenNoToken());
+        }
+        throw new IllegalArgumentException("realtime.websocket.auth.jwt.secret or public-key is required for JWT authentication");
     }
 
     @Bean @ConditionalOnMissingBean

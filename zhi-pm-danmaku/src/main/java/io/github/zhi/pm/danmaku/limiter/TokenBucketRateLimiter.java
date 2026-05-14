@@ -3,6 +3,7 @@ package io.github.zhi.pm.danmaku.limiter;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
+import reactor.core.publisher.Mono;
 
 public class TokenBucketRateLimiter implements RateLimiter {
     private final int maxTokens;
@@ -14,9 +15,10 @@ public class TokenBucketRateLimiter implements RateLimiter {
         this.refillIntervalNanos = 1_000_000_000L;
     }
 
-    public boolean tryAcquire(String key) {
+    @Override
+    public Mono<Boolean> tryAcquire(String key) {
         Bucket bucket = buckets.computeIfAbsent(key, k -> new Bucket(maxTokens, System.nanoTime()));
-        return bucket.tryAcquire(maxTokens, refillIntervalNanos);
+        return Mono.just(bucket.tryAcquire(maxTokens, refillIntervalNanos));
     }
 
     private static class Bucket {

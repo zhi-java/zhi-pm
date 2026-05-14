@@ -32,10 +32,11 @@ public final class ClusterAwareMessageSender implements MessageSender {
         Mono<Boolean> brokerDelivery = broker.publish(BrokerMessage.forUser(userId, message, instanceId))
                 .thenReturn(true);
 
-        return localDelivery.flatMap(delivered -> {
-            if (delivered) return Mono.just(true);
-            return brokerDelivery;
-        }).switchIfEmpty(brokerDelivery);
+        // Always publish to broker for cross-instance delivery; local delivery
+        // only covers connections on this instance. Other instances may also hold
+        // connections for the same user.
+        return localDelivery.zipWith(brokerDelivery, (local, broker) -> local || broker)
+                .switchIfEmpty(brokerDelivery);
     }
 
     @Override

@@ -3,6 +3,7 @@ package io.github.zhi.pm.danmaku.limiter;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import java.util.List;
+import reactor.core.publisher.Mono;
 
 public class RedisRateLimiter implements RateLimiter {
     private static final RedisScript<Long> SLIDING_WINDOW_SCRIPT = RedisScript.of(
@@ -36,13 +37,14 @@ public class RedisRateLimiter implements RateLimiter {
     }
 
     @Override
-    public boolean tryAcquire(String key) {
+    public Mono<Boolean> tryAcquire(String key) {
         String redisKey = prefix + "rate_limit:" + key;
-        Long result = redis.execute(
+        return redis.execute(
                 SLIDING_WINDOW_SCRIPT,
                 List.of(redisKey),
                 List.of(String.valueOf(windowMs), String.valueOf(maxCount), String.valueOf(System.currentTimeMillis()))
-        ).blockFirst();
-        return result != null && result == 1;
+        ).next()
+         .map(result -> result != null && result == 1L)
+         .defaultIfEmpty(false);
     }
 }

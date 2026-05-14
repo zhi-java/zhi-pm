@@ -10,11 +10,14 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public final class RedisConnectionRegistry implements ConnectionRegistry {
+    private static final Logger LOG = LoggerFactory.getLogger(RedisConnectionRegistry.class);
     private final ConcurrentMap<String, SessionConnection> localConnections = new ConcurrentHashMap<>();
     private final ReactiveRedisTemplate<String, String> redis;
     private final String prefix;
@@ -70,7 +73,8 @@ public final class RedisConnectionRegistry implements ConnectionRegistry {
         String usKey = userSessionsKey(uid);
         String gsKey = globalSessionsKey();
 
-        // Fetch rooms this session was in, then clean up everything
+        // Fetch rooms this session was in, then clean up everything.
+        // Subscribe with error logging so failures are observable rather than silently swallowed.
         redis.opsForSet().members(sessionRoomsKey(sessionId))
                 .flatMap(roomId -> redis.opsForSet().remove(roomMembersKey(roomId), sessionId).then())
                 .then(redis.delete(sessionRoomsKey(sessionId)))
@@ -78,7 +82,10 @@ public final class RedisConnectionRegistry implements ConnectionRegistry {
                 .then(redis.opsForSet().remove(gsKey, sessionId))
                 .then(redis.delete(ck))
                 .doFinally(signal -> removed.completeOutbound())
-                .subscribe();
+                .subscribe(
+                        v -> { /* onNext: unused for void chain */ },
+                        error -> LOG.warn("Failed to clean up Redis state for session {}", sessionId, error)
+                );
     }
 
     // --- Connection queries ---
@@ -161,8 +168,10 @@ public final class RedisConnectionRegistry implements ConnectionRegistry {
     // --- Session lease renewal (called on heartbeat) ---
 
     public Mono<Void> renewSessionLease(String sessionId) {
+        SessionConnection conn = localConnections.get(sessionId);
+        if (conn == null) return Mono.empty();
         return redis.expire(connKey(sessionId), sessionTtl)
-                .then(redis.expire(userSessionsKey(localConnections.get(sessionId).userId()), sessionTtl))
+                .then(redis.expire(userSessionsKey(conn.userId()), sessionTtl))
                 .then();
     }
 }

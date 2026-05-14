@@ -3,36 +3,38 @@ package io.github.zhi.pm.chat.storage;
 import io.github.zhi.pm.chat.model.ChatMessageModel;
 import io.github.zhi.pm.chat.model.ConversationModel;
 import io.github.zhi.pm.chat.model.DeliveryRecord;
-import java.util.List;
-import java.util.Set;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 public interface ChatStorage {
 
-    ConversationModel getOrCreateConversation(String conversationId, String type);
+    Mono<ConversationModel> getOrCreateConversation(String conversationId, String type);
 
-    ConversationModel getConversation(String conversationId);
+    Mono<ConversationModel> getConversation(String conversationId);
 
-    void saveMessage(ChatMessageModel message);
+    Mono<Void> addMemberToConversation(String conversationId, String userId);
 
-    List<ChatMessageModel> getHistory(String conversationId, int limit);
+    Mono<Void> saveMessage(ChatMessageModel message);
 
-    void saveDelivery(DeliveryRecord record);
+    Flux<ChatMessageModel> getHistory(String conversationId, int limit);
 
-    DeliveryRecord getDelivery(String messageId, String receiverId);
+    Mono<Void> saveDelivery(DeliveryRecord record);
 
-    void updateDelivery(DeliveryRecord record);
+    Mono<DeliveryRecord> getDelivery(String messageId, String receiverId);
 
-    void incrementUnread(String conversationId, String userId);
+    Mono<Void> updateDelivery(DeliveryRecord record);
 
-    long getUnreadCount(String conversationId, String userId);
+    Mono<Void> incrementUnread(String conversationId, String userId);
 
-    void resetUnread(String conversationId, String userId);
+    Mono<Long> getUnreadCount(String conversationId, String userId);
 
-    Set<String> getConversationIds();
+    Mono<Void> resetUnread(String conversationId, String userId);
+
+    Flux<String> getConversationIds();
 
     // Offline message queue
 
-    void addOfflineMessage(String userId, ChatMessageModel message);
+    Mono<Void> addOfflineMessage(String userId, ChatMessageModel message);
 
-    List<ChatMessageModel> drainOfflineMessages(String userId, int limit);
+    Flux<ChatMessageModel> drainOfflineMessages(String userId, int limit);
 }

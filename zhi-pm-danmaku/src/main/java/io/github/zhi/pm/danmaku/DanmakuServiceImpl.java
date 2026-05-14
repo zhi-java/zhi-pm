@@ -60,16 +60,18 @@ public class DanmakuServiceImpl implements DanmakuService {
             return sendError(connection, message, "you are muted in this room");
         }
         String userKey = connection.userId() + ":" + roomId;
-        if (!userLimiter.tryAcquire(userKey)) {
-            return sendError(connection, message, "rate limit exceeded");
-        }
-        if (!roomLimiter.tryAcquire(roomId)) {
-            return sendError(connection, message, "room rate limit exceeded");
-        }
-        WsMessage<?> danmakuMsg = new WsMessage<>(message.getId(), "danmaku.message",
-                message.getTraceId(), null, connection.userId(), null, roomId,
-                Instant.now(), Map.of("content", content));
-        return sender.sendToRoom(roomId, danmakuMsg).then();
+        return userLimiter.tryAcquire(userKey)
+                .flatMap(userAllowed -> {
+                    if (!userAllowed) return sendError(connection, message, "rate limit exceeded");
+                    return roomLimiter.tryAcquire(roomId)
+                            .flatMap(roomAllowed -> {
+                                if (!roomAllowed) return sendError(connection, message, "room rate limit exceeded");
+                                WsMessage<?> danmakuMsg = new WsMessage<>(message.getId(), "danmaku.message",
+                                        message.getTraceId(), null, connection.userId(), null, roomId,
+                                        Instant.now(), Map.of("content", content));
+                                return sender.sendToRoom(roomId, danmakuMsg).then();
+                            });
+                });
     }
 
     public InMemoryMuteService getMuteService() {

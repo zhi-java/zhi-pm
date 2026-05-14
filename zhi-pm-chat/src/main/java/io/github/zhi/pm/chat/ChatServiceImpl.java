@@ -65,35 +65,45 @@ public class ChatServiceImpl implements ChatService {
         String clientMessageId = getString(map, "clientMessageId");
 
         String messageId = UUID.randomUUID().toString().replace("-", "");
+        String finalConversationType = conversationType;
+        String finalContentType = contentType;
+
         ChatMessageModel msgModel = ChatMessageModel.create(messageId, clientMessageId,
                 conversationId, conversationType, connection.userId(), contentType, content);
 
-        ConversationModel conversation = storage.getOrCreateConversation(conversationId, conversationType);
-        conversation.addMember(connection.userId());
+        return storage.getOrCreateConversation(conversationId, conversationType)
+                .then(storage.addMemberToConversation(conversationId, connection.userId()))
+                .then(storage.saveMessage(msgModel))
+                .then(storage.getConversation(conversationId))
+                .flatMap(conversation -> {
+                    WsMessage<?> chatMsg = new WsMessage<>(messageId, "chat.message", message.getTraceId(),
+                            null, connection.userId(), null, conversationId, Instant.now(),
+                            Map.of("messageId", messageId, "conversationId", conversationId,
+                                    "conversationType", finalConversationType, "contentType", finalContentType,
+                                    "content", content, "senderId", connection.userId()));
 
-        storage.saveMessage(msgModel);
+                    Mono<Void> deliveryAndUnread = Flux.fromIterable(conversation.getMembers())
+                            .filter(uid -> !uid.equals(connection.userId()))
+                            .flatMap(uid -> storage.saveDelivery(DeliveryRecord.pending(messageId, uid))
+                                    .then(storage.incrementUnread(conversationId, uid)))
+                            .then();
 
-        WsMessage<?> chatMsg = new WsMessage<>(messageId, "chat.message", message.getTraceId(),
-                null, connection.userId(), null, conversationId, Instant.now(),
-                Map.of("messageId", messageId, "conversationId", conversationId,
-                        "conversationType", conversationType, "contentType", contentType,
-                        "content", content, "senderId", connection.userId()));
+                    Mono<Void> sendMessage;
+                    if ("single".equals(finalConversationType)) {
+                        List<String> targets = List.copyOf(conversation.getMembers());
+                        sendMessage = sender.sendToUsers(targets, chatMsg).then();
+                    } else {
+                        sendMessage = sender.sendToRoom(conversationId, chatMsg).then();
+                    }
 
-        for (String memberId : conversation.getMembers()) {
-            if (!memberId.equals(connection.userId())) {
-                DeliveryRecord record = DeliveryRecord.pending(messageId, memberId);
-                storage.saveDelivery(record);
-                storage.incrementUnread(conversationId, memberId);
-            }
-        }
+                    Mono<Void> offline = Mono.empty();
+                    if (offlineMessageEnabled && "single".equals(finalConversationType)) {
+                        List<String> targets = List.copyOf(conversation.getMembers());
+                        offline = enqueueOfflineForOffline(targets, connection.userId(), msgModel);
+                    }
 
-        if ("single".equals(conversationType)) {
-            List<String> targets = List.copyOf(conversation.getMembers());
-            return sender.sendToUsers(targets, chatMsg).then(
-                    offlineMessageEnabled ? enqueueOfflineForOffline(targets, connection.userId(), msgModel) : Mono.empty());
-        } else {
-            return sender.sendToRoom(conversationId, chatMsg).then();
-        }
+                    return deliveryAndUnread.then(sendMessage).then(offline);
+                });
     }
 
     @Override
@@ -107,18 +117,9 @@ public class ChatServiceImpl implements ChatService {
         if (messageId == null) {
             return sendError(connection, "messageId is required");
         }
-        DeliveryRecord record = storage.getDelivery(messageId, connection.userId());
-        if (record != null) {
-            storage.updateDelivery(record.delivered());
-        }
-        WsMessage<?> ackMsg = new WsMessage<>(null, "chat.ack", message.getTraceId(),
-                null, null, connection.userId(), null, Instant.now(),
-                Map.of("messageId", messageId, "status", "delivered"));
-        SendOutcome outcome = connection.trySend(ackMsg);
-        if (outcome == SendOutcome.OVERFLOW) {
-            return connection.close("outbound buffer overflow");
-        }
-        return Mono.empty();
+        return storage.getDelivery(messageId, connection.userId())
+                .flatMap(record -> storage.updateDelivery(record.delivered()))
+                .then(sendAckMessage(connection, messageId, message.getTraceId()));
     }
 
     @Override
@@ -132,17 +133,15 @@ public class ChatServiceImpl implements ChatService {
         if (conversationId == null) {
             return sendError(connection, "conversationId is required");
         }
-        storage.resetUnread(conversationId, connection.userId());
-        WsMessage<?> readMsg = new WsMessage<>(null, "chat.read", message.getTraceId(),
-                null, connection.userId(), null, conversationId, Instant.now(),
-                Map.of("conversationId", conversationId, "userId", connection.userId()));
-        return sender.sendToRoom(conversationId, readMsg).then();
+        return storage.resetUnread(conversationId, connection.userId())
+                .then(sender.sendToRoom(conversationId, new WsMessage<>(null, "chat.read", message.getTraceId(),
+                        null, connection.userId(), null, conversationId, Instant.now(),
+                        Map.of("conversationId", conversationId, "userId", connection.userId())))).then();
     }
 
     @Override
     public Mono<List<Map<String, Object>>> getHistory(String conversationId, int limit) {
-        List<ChatMessageModel> messages = storage.getHistory(conversationId, limit);
-        List<Map<String, Object>> result = messages.stream()
+        return storage.getHistory(conversationId, limit)
                 .map(m -> {
                     Map<String, Object> map = new java.util.HashMap<>();
                     map.put("messageId", m.messageId());
@@ -154,20 +153,17 @@ public class ChatServiceImpl implements ChatService {
                     map.put("createdAt", m.createdAt().toString());
                     return map;
                 })
-                .toList();
-        return Mono.just(result);
+                .collectList();
     }
 
     @Override
     public Mono<Long> getUnreadCount(String conversationId, String userId) {
-        return Mono.just(storage.getUnreadCount(conversationId, userId));
+        return storage.getUnreadCount(conversationId, userId);
     }
 
     @Override
     public Mono<Void> drainOfflineMessages(String userId) {
-        List<ChatMessageModel> messages = storage.drainOfflineMessages(userId, 100);
-        if (messages.isEmpty()) return Mono.empty();
-        return Flux.fromIterable(messages)
+        return storage.drainOfflineMessages(userId, 100)
                 .flatMap(msg -> {
                     WsMessage<?> wsMsg = new WsMessage<>(msg.messageId(), "chat.message", null,
                             null, msg.senderId(), userId, msg.conversationId(), msg.createdAt(),
@@ -189,8 +185,19 @@ public class ChatServiceImpl implements ChatService {
                 .filter(uid -> !uid.equals(senderId))
                 .flatMap(uid -> registry.isOnline(uid).map(online -> Map.entry(uid, online)))
                 .filter(entry -> !entry.getValue())
-                .doOnNext(entry -> storage.addOfflineMessage(entry.getKey(), message))
+                .flatMap(entry -> storage.addOfflineMessage(entry.getKey(), message))
                 .then();
+    }
+
+    private Mono<Void> sendAckMessage(SessionConnection connection, String messageId, String traceId) {
+        WsMessage<?> ackMsg = new WsMessage<>(null, "chat.ack", traceId,
+                null, null, connection.userId(), null, Instant.now(),
+                Map.of("messageId", messageId, "status", "delivered"));
+        SendOutcome outcome = connection.trySend(ackMsg);
+        if (outcome == SendOutcome.OVERFLOW) {
+            return connection.close("outbound buffer overflow");
+        }
+        return Mono.empty();
     }
 
     private String getString(Map<?, ?> map, String key) {

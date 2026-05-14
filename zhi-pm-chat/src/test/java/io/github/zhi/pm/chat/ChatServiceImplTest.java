@@ -6,7 +6,6 @@ import io.github.zhi.pm.core.send.LocalMessageSender;
 import io.github.zhi.pm.core.session.DefaultSessionConnection;
 import io.github.zhi.pm.chat.storage.InMemoryChatStorage;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
@@ -36,7 +35,9 @@ class ChatServiceImplTest {
                 Map.of("conversationId", "conv-1", "conversationType", "single", "content", "hello bob", "contentType", "text"));
         StepVerifier.create(service.processChatMessage(alice, msg)).verifyComplete();
 
-        org.junit.jupiter.api.Assertions.assertEquals(1, storage.getHistory("conv-1", 10).size());
+        StepVerifier.create(storage.getHistory("conv-1", 10).collectList())
+                .assertNext(list -> org.junit.jupiter.api.Assertions.assertEquals(1, list.size()))
+                .verifyComplete();
     }
 
     @Test
@@ -53,17 +54,24 @@ class ChatServiceImplTest {
                 Map.of("conversationId", "group-1", "conversationType", "group", "content", "hello group"));
         StepVerifier.create(service.processChatMessage(alice, msg)).verifyComplete();
 
-        org.junit.jupiter.api.Assertions.assertEquals(1, storage.getHistory("group-1", 10).size());
+        StepVerifier.create(storage.getHistory("group-1", 10).collectList())
+                .assertNext(list -> org.junit.jupiter.api.Assertions.assertEquals(1, list.size()))
+                .verifyComplete();
     }
 
     @Test
     void tracksUnreadCount() {
         InMemoryChatStorage storage = new InMemoryChatStorage(100);
-        storage.incrementUnread("conv-1", "bob");
-        storage.incrementUnread("conv-1", "bob");
-        org.junit.jupiter.api.Assertions.assertEquals(2, storage.getUnreadCount("conv-1", "bob"));
-        storage.resetUnread("conv-1", "bob");
-        org.junit.jupiter.api.Assertions.assertEquals(0, storage.getUnreadCount("conv-1", "bob"));
+        StepVerifier.create(storage.incrementUnread("conv-1", "bob")
+                .then(storage.incrementUnread("conv-1", "bob"))
+                .then(storage.getUnreadCount("conv-1", "bob")))
+                .assertNext(count -> org.junit.jupiter.api.Assertions.assertEquals(2L, count))
+                .verifyComplete();
+
+        StepVerifier.create(storage.resetUnread("conv-1", "bob")
+                .then(storage.getUnreadCount("conv-1", "bob")))
+                .assertNext(count -> org.junit.jupiter.api.Assertions.assertEquals(0L, count))
+                .verifyComplete();
     }
 
     @Test

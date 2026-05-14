@@ -7,17 +7,17 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 public class InMemoryChatStorage implements ChatStorage {
     private final int maxHistoryPerConversation;
     private final Map<String, ConversationModel> conversations = new ConcurrentHashMap<>();
     private final Map<String, ConcurrentLinkedDeque<ChatMessageModel>> messagesByConversation = new ConcurrentHashMap<>();
-    private final Map<String, Map<String, DeliveryRecord>> deliveriesByConversation = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, DeliveryRecord>> deliveriesByMessage = new ConcurrentHashMap<>();
     private final Map<String, Map<String, AtomicLong>> unreadCounts = new ConcurrentHashMap<>();
     private final Map<String, ConcurrentLinkedDeque<ChatMessageModel>> offlineMessages = new ConcurrentHashMap<>();
 
@@ -25,90 +25,116 @@ public class InMemoryChatStorage implements ChatStorage {
         this.maxHistoryPerConversation = maxHistoryPerConversation;
     }
 
-    public ConversationModel getOrCreateConversation(String conversationId, String type) {
-        return conversations.computeIfAbsent(conversationId, id -> new ConversationModel(id, type));
+    @Override
+    public Mono<ConversationModel> getOrCreateConversation(String conversationId, String type) {
+        return Mono.just(conversations.computeIfAbsent(conversationId, id -> new ConversationModel(id, type)));
     }
 
-    public ConversationModel getConversation(String conversationId) {
-        return conversations.get(conversationId);
+    @Override
+    public Mono<ConversationModel> getConversation(String conversationId) {
+        return Mono.justOrEmpty(conversations.get(conversationId));
     }
 
-    public void saveMessage(ChatMessageModel message) {
+    @Override
+    public Mono<Void> addMemberToConversation(String conversationId, String userId) {
+        ConversationModel conversation = conversations.get(conversationId);
+        if (conversation != null) {
+            conversation.addMember(userId);
+        }
+        return Mono.empty();
+    }
+
+    @Override
+    public Mono<Void> saveMessage(ChatMessageModel message) {
         ConcurrentLinkedDeque<ChatMessageModel> deque = messagesByConversation
                 .computeIfAbsent(message.conversationId(), k -> new ConcurrentLinkedDeque<>());
         deque.addLast(message);
         while (deque.size() > maxHistoryPerConversation) {
             deque.pollFirst();
         }
+        return Mono.empty();
     }
 
-    public List<ChatMessageModel> getHistory(String conversationId, int limit) {
+    @Override
+    public Flux<ChatMessageModel> getHistory(String conversationId, int limit) {
         ConcurrentLinkedDeque<ChatMessageModel> deque = messagesByConversation.get(conversationId);
-        if (deque == null) return Collections.emptyList();
+        if (deque == null) return Flux.empty();
         List<ChatMessageModel> list = new ArrayList<>(deque);
         int from = Math.max(0, list.size() - limit);
-        return list.subList(from, list.size());
+        return Flux.fromIterable(list.subList(from, list.size()));
     }
 
-    public void saveDelivery(DeliveryRecord record) {
-        deliveriesByConversation
+    @Override
+    public Mono<Void> saveDelivery(DeliveryRecord record) {
+        deliveriesByMessage
                 .computeIfAbsent(record.messageId(), k -> new ConcurrentHashMap<>())
                 .put(record.receiverId(), record);
+        return Mono.empty();
     }
 
-    public DeliveryRecord getDelivery(String messageId, String receiverId) {
-        Map<String, DeliveryRecord> map = deliveriesByConversation.get(messageId);
-        return map == null ? null : map.get(receiverId);
+    @Override
+    public Mono<DeliveryRecord> getDelivery(String messageId, String receiverId) {
+        Map<String, DeliveryRecord> map = deliveriesByMessage.get(messageId);
+        DeliveryRecord record = map == null ? null : map.get(receiverId);
+        return Mono.justOrEmpty(record);
     }
 
-    public void updateDelivery(DeliveryRecord record) {
-        Map<String, Map<String, DeliveryRecord>> deliveriesByMsg = deliveriesByConversation;
-        Map<String, DeliveryRecord> map = deliveriesByMsg.get(record.messageId());
+    @Override
+    public Mono<Void> updateDelivery(DeliveryRecord record) {
+        Map<String, DeliveryRecord> map = deliveriesByMessage.get(record.messageId());
         if (map != null) {
             map.put(record.receiverId(), record);
         }
+        return Mono.empty();
     }
 
-    public void incrementUnread(String conversationId, String userId) {
+    @Override
+    public Mono<Void> incrementUnread(String conversationId, String userId) {
         unreadCounts.computeIfAbsent(conversationId, k -> new ConcurrentHashMap<>())
                 .computeIfAbsent(userId, k -> new AtomicLong(0))
                 .incrementAndGet();
+        return Mono.empty();
     }
 
-    public long getUnreadCount(String conversationId, String userId) {
+    @Override
+    public Mono<Long> getUnreadCount(String conversationId, String userId) {
         Map<String, AtomicLong> map = unreadCounts.get(conversationId);
-        if (map == null) return 0;
+        if (map == null) return Mono.just(0L);
         AtomicLong count = map.get(userId);
-        return count == null ? 0 : count.get();
+        return Mono.just(count == null ? 0L : count.get());
     }
 
-    public void resetUnread(String conversationId, String userId) {
+    @Override
+    public Mono<Void> resetUnread(String conversationId, String userId) {
         Map<String, AtomicLong> map = unreadCounts.get(conversationId);
         if (map != null) {
             AtomicLong count = map.get(userId);
             if (count != null) count.set(0);
         }
-    }
-
-    public Set<String> getConversationIds() {
-        return Set.copyOf(conversations.keySet());
+        return Mono.empty();
     }
 
     @Override
-    public void addOfflineMessage(String userId, ChatMessageModel message) {
+    public Flux<String> getConversationIds() {
+        return Flux.fromIterable(conversations.keySet());
+    }
+
+    @Override
+    public Mono<Void> addOfflineMessage(String userId, ChatMessageModel message) {
         offlineMessages.computeIfAbsent(userId, k -> new ConcurrentLinkedDeque<>()).addLast(message);
+        return Mono.empty();
     }
 
     @Override
-    public List<ChatMessageModel> drainOfflineMessages(String userId, int limit) {
+    public Flux<ChatMessageModel> drainOfflineMessages(String userId, int limit) {
         ConcurrentLinkedDeque<ChatMessageModel> deque = offlineMessages.get(userId);
-        if (deque == null || deque.isEmpty()) return Collections.emptyList();
+        if (deque == null || deque.isEmpty()) return Flux.empty();
         List<ChatMessageModel> result = new ArrayList<>();
         for (int i = 0; i < limit && !deque.isEmpty(); i++) {
             ChatMessageModel msg = deque.pollFirst();
             if (msg != null) result.add(msg);
         }
         if (deque.isEmpty()) offlineMessages.remove(userId);
-        return result;
+        return Flux.fromIterable(result);
     }
 }
