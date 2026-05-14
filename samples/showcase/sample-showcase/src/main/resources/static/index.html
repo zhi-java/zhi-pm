@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zhi PM — Reactive WebSocket Gateway</title>
+    <title>Zhi PM — 响应式 WebSocket 网关演示</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -560,6 +560,72 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+
+        /* 视频模拟 */
+        .video-simulation {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, #1a1a2e, #16213e, #0f3460, #533483);
+            background-size: 400% 400%;
+            animation: videoShift 15s ease infinite;
+        }
+        @keyframes videoShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .video-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            padding: 20px 12px 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #fff;
+            font-size: 12px;
+        }
+        .video-progress {
+            flex: 1;
+            height: 3px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .video-progress-bar {
+            height: 100%;
+            background: #007AFF;
+            width: 0%;
+            animation: progressLoop 30s linear infinite;
+        }
+        @keyframes progressLoop {
+            from { width: 0%; }
+            to { width: 100%; }
+        }
+        .live-info {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 12px;
+        }
+        .live-badge {
+            background: #FF3B30;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .like-btn {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: transform 0.2s;
+        }
+        .like-btn:active { transform: scale(1.3); }
     </style>
 </head>
 <body>
@@ -567,12 +633,12 @@
     <div class="topbar">
         <div class="topbar-title">
             <i data-lucide="radio" style="width:20px;height:20px"></i>
-            Zhi PM Showcase
+            Zhi PM 演示中心
         </div>
         <div class="topbar-right">
             <div class="ws-status">
                 <div class="ws-dot" id="ws-dot"></div>
-                <span id="ws-label">Disconnected</span>
+                <span id="ws-label">未连接</span>
             </div>
             <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
                 <i data-lucide="moon" id="theme-icon" style="width:18px;height:18px"></i>
@@ -583,28 +649,28 @@
     <div class="main">
         <!-- Sidebar -->
         <nav class="sidebar">
-            <div class="sidebar-section">Modules</div>
+            <div class="sidebar-section">功能模块</div>
             <a class="nav-item active" data-panel="presence" onclick="navigate('presence')">
-                <i data-lucide="activity"></i><span>Online Presence</span>
+                <i data-lucide="activity"></i><span>在线状态</span>
             </a>
             <a class="nav-item" data-panel="push" onclick="navigate('push')">
-                <i data-lucide="send"></i><span>Message Push</span>
+                <i data-lucide="send"></i><span>消息推送</span>
             </a>
             <a class="nav-item" data-panel="danmaku" onclick="navigate('danmaku')">
-                <i data-lucide="radio"></i><span>Live Danmaku</span>
+                <i data-lucide="radio"></i><span>直播弹幕</span>
             </a>
             <a class="nav-item" data-panel="chat" onclick="navigate('chat')">
-                <i data-lucide="message-square"></i><span>Chat Room</span>
+                <i data-lucide="message-square"></i><span>聊天室</span>
             </a>
             <a class="nav-item" data-panel="orders" onclick="navigate('orders')">
-                <i data-lucide="shopping-cart"></i><span>Order Tracking</span>
+                <i data-lucide="shopping-cart"></i><span>订单追踪</span>
             </a>
-            <div class="sidebar-section">Admin</div>
+            <div class="sidebar-section">运维管理</div>
             <a class="nav-item" data-panel="admin" onclick="navigate('admin')">
-                <i data-lucide="settings"></i><span>Admin Panel</span>
+                <i data-lucide="settings"></i><span>管理后台</span>
             </a>
             <a class="nav-item" data-panel="metrics" onclick="navigate('metrics')">
-                <i data-lucide="bar-chart-3"></i><span>Metrics</span>
+                <i data-lucide="bar-chart-3"></i><span>实时指标</span>
             </a>
         </nav>
 
@@ -627,13 +693,13 @@
 
     <script>
     // ============================================================
-    // Config
+    // 配置
     // ============================================================
     const BASE = '';  // same origin
     const WS_BASE = `ws://${location.host}`;
 
     // ============================================================
-    // Store
+    // 状态管理
     // ============================================================
     const Store = {
         currentUser: null,
@@ -661,7 +727,7 @@
     };
 
     // ============================================================
-    // Toast
+    // 消息提示
     // ============================================================
     function showToast(message, type = 'info') {
         const container = document.getElementById('toasts');
@@ -675,7 +741,7 @@
     }
 
     // ============================================================
-    // WebSocket Client
+    // WebSocket 客户端
     // ============================================================
     class WsClient {
         constructor(name, url, userId) {
@@ -698,7 +764,7 @@
                 this.reconnectDelay = 1000;
                 updateWsStatus();
                 Store.addLog('CONNECT', `${this.name}: ${this.userId}`, this.name);
-                showToast(`${this.name} connected as ${this.userId}`, 'success');
+                showToast(`${this.name} 已连接: ${this.userId}`, 'success');
             };
             this.ws.onmessage = (e) => {
                 try {
@@ -726,7 +792,7 @@
 
         send(type, payload) {
             if (!this.ws || this.ws.readyState !== 1) {
-                showToast('Not connected', 'error');
+                showToast('未连接', 'error');
                 return;
             }
             const msg = { type, payload, from: this.userId, timestamp: new Date().toISOString() };
@@ -753,18 +819,18 @@
         const label = document.getElementById('ws-label');
         if (connected === 0) {
             dot.className = 'ws-dot';
-            label.textContent = 'Disconnected';
+            label.textContent = '未连接';
         } else if (connected < clients.length) {
             dot.className = 'ws-dot reconnecting';
-            label.textContent = `${connected}/${clients.length} connected`;
+            label.textContent = `${connected}/${clients.length} 个连接`;
         } else {
             dot.className = 'ws-dot connected';
-            label.textContent = `${connected} connection${connected > 1 ? 's' : ''}`;
+            label.textContent = `${connected} 个连接`;
         }
     }
 
     // ============================================================
-    // Router
+    // 路由
     // ============================================================
     function navigate(panel) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -783,7 +849,7 @@
     }
 
     // ============================================================
-    // Theme
+    // 主题切换
     // ============================================================
     function toggleTheme() {
         Store.theme = Store.theme === 'light' ? 'dark' : 'light';
@@ -795,7 +861,7 @@
     }
 
     // ============================================================
-    // API helpers
+    // API 工具
     // ============================================================
     async function api(path, options = {}) {
         try {
@@ -805,13 +871,13 @@
             });
             return await resp.json();
         } catch (e) {
-            showToast(`API error: ${e.message}`, 'error');
+            showToast(`请求错误: ${e.message}`, 'error');
             return null;
         }
     }
 
     // ============================================================
-    // Init
+    // 初始化
     // ============================================================
     document.addEventListener('DOMContentLoaded', () => {
         if (Store.theme === 'dark') {
@@ -826,7 +892,7 @@
     window.addEventListener('hashchange', handleHash);
 
     // ============================================================
-    // Presence Module
+    // 在线状态模块
     // ============================================================
     const PRESENCE_PORT = location.port || '8088';
     const PRESENCE_WS = `${WS_BASE}/ws`;
@@ -835,32 +901,32 @@
         const panel = document.getElementById('panel-presence');
         panel.innerHTML = `
             <div class="card">
-                <div class="card-title"><i data-lucide="activity" style="width:20px;height:20px"></i> Online Presence</div>
+                <div class="card-title"><i data-lucide="activity" style="width:20px;height:20px"></i> 在线状态</div>
                 <p style="color:var(--text-secondary);margin-bottom:16px;font-size:14px">
-                    Click user cards to connect/disconnect. Send push notifications and broadcasts.
+                    点击用户卡片连接/断开 WebSocket，发送推送通知和广播消息
                 </p>
                 <div class="user-cards" id="presence-users"></div>
             </div>
             <div class="card-grid">
-                <div class="stat-card"><div class="stat-label">Connections</div><div class="stat-value" id="presence-stat-conn">-</div></div>
-                <div class="stat-card"><div class="stat-label">Online Users</div><div class="stat-value" id="presence-stat-users">-</div></div>
+                <div class="stat-card"><div class="stat-label">连接数</div><div class="stat-value" id="presence-stat-conn">-</div></div>
+                <div class="stat-card"><div class="stat-label">在线用户</div><div class="stat-value" id="presence-stat-users">-</div></div>
             </div>
             <div class="card">
-                <div class="card-title">Send Notification</div>
+                <div class="card-title">发送通知</div>
                 <div class="form-row">
                     <select class="select" id="presence-target-user" style="max-width:150px">
                         <option value="alice">Alice</option><option value="bob">Bob</option><option value="charlie">Charlie</option>
                     </select>
-                    <input class="input" id="presence-push-msg" placeholder="Message..." value="Hello from showcase!">
-                    <button class="btn btn-primary" onclick="presencePush()"><i data-lucide="send" style="width:14px;height:14px"></i> Send</button>
+                    <input class="input" id="presence-push-msg" placeholder="消息内容..." value="Hello from showcase!">
+                    <button class="btn btn-primary" onclick="presencePush()"><i data-lucide="send" style="width:14px;height:14px"></i> 发送</button>
                 </div>
                 <div class="form-row">
-                    <input class="input" id="presence-broadcast-msg" placeholder="Broadcast message..." value="Broadcast to all!">
-                    <button class="btn btn-ghost" onclick="presenceBroadcast()"><i data-lucide="radio" style="width:14px;height:14px"></i> Broadcast</button>
+                    <input class="input" id="presence-broadcast-msg" placeholder="广播消息..." value="Broadcast to all!">
+                    <button class="btn btn-ghost" onclick="presenceBroadcast()"><i data-lucide="radio" style="width:14px;height:14px"></i> 广播</button>
                 </div>
             </div>
             <div class="log-panel">
-                <div class="log-header">Message Log <button class="btn btn-sm btn-ghost" onclick="clearLog('presence')">Clear</button></div>
+                <div class="log-header">消息日志 <button class="btn btn-sm btn-ghost" onclick="clearLog('presence')">清空</button></div>
                 <div class="log-body" id="presence-log"></div>
             </div>
         `;
@@ -880,7 +946,7 @@
                     <div class="user-avatar">${u[0].toUpperCase()}</div>
                     <div class="user-info">
                         <div class="user-name">${u.charAt(0).toUpperCase() + u.slice(1)}</div>
-                        <div class="user-status">${online ? 'Online' : 'Offline'}</div>
+                        <div class="user-status">${online ? '在线' : '离线'}</div>
                     </div>
                     <span class="badge ${online ? 'badge-success' : 'badge-error'}">${online ? 'ON' : 'OFF'}</span>
                 </div>
@@ -909,13 +975,13 @@
         const userId = document.getElementById('presence-target-user').value;
         const message = document.getElementById('presence-push-msg').value;
         await api(`/api/push/users/${userId}`, { method: 'POST', body: JSON.stringify({ message }) });
-        showToast(`Pushed to ${userId}`, 'success');
+        showToast(`已推送给 ${userId}`, 'success');
     }
 
     async function presenceBroadcast() {
         const message = document.getElementById('presence-broadcast-msg').value;
         const result = await api(`/api/push/broadcast`, { method: 'POST', body: JSON.stringify({ message }) });
-        showToast(`Broadcast sent to ${result?.sent || 0} connections`, 'success');
+        showToast(`广播已发送至 ${result?.sent || 0} 个连接`, 'success');
     }
 
     async function presenceRefreshStats() {
@@ -945,46 +1011,46 @@
     }
 
     // ============================================================
-    // Push Module
+    // 消息推送模块
     // ============================================================
     function render_push() {
         const panel = document.getElementById('panel-push');
         panel.innerHTML = `
             <div class="card">
-                <div class="card-title"><i data-lucide="send" style="width:20px;height:20px"></i> Message Push</div>
+                <div class="card-title"><i data-lucide="send" style="width:20px;height:20px"></i> 消息推送</div>
                 <p style="color:var(--text-secondary);margin-bottom:16px;font-size:14px">
-                    Connect as a user, then send messages via REST API. Messages arrive via WebSocket echo.
+                    连接用户后通过 REST API 发送消息，消息通过 WebSocket 回显
                 </p>
                 <div class="form-row">
                     <select class="select" id="push-user" style="max-width:150px" onchange="pushConnect()">
-                        <option value="">Select user...</option>
+                        <option value="">请选择用户...</option>
                         <option value="alice">Alice</option><option value="bob">Bob</option><option value="charlie">Charlie</option>
                     </select>
-                    <span id="push-status" class="badge badge-error">Not connected</span>
+                    <span id="push-status" class="badge badge-error">未连接</span>
                 </div>
             </div>
             <div class="card">
-                <div class="card-title">Send Push</div>
+                <div class="card-title">发送推送</div>
                 <div class="form-group">
-                    <label class="form-label">Target Type</label>
+                    <label class="form-label">推送目标类型</label>
                     <select class="select" id="push-type">
-                        <option value="user">User</option>
-                        <option value="broadcast">Broadcast</option>
-                        <option value="room">Room</option>
+                        <option value="user">用户</option>
+                        <option value="broadcast">广播</option>
+                        <option value="room">房间</option>
                     </select>
                 </div>
                 <div class="form-group" id="push-target-group">
-                    <label class="form-label">Target</label>
-                    <input class="input" id="push-target" placeholder="User ID or Room ID">
+                    <label class="form-label">目标 ID</label>
+                    <input class="input" id="push-target" placeholder="用户 ID 或房间 ID">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Message</label>
-                    <input class="input" id="push-message" placeholder="Message content" value="Hello from push module!">
+                    <label class="form-label">消息内容</label>
+                    <input class="input" id="push-message" placeholder="消息内容" value="Hello from push module!">
                 </div>
-                <button class="btn btn-primary" onclick="pushSend()"><i data-lucide="send" style="width:14px;height:14px"></i> Send</button>
+                <button class="btn btn-primary" onclick="pushSend()"><i data-lucide="send" style="width:14px;height:14px"></i> 发送</button>
             </div>
             <div class="log-panel">
-                <div class="log-header">Received Messages <button class="btn btn-sm btn-ghost" onclick="clearLog('push')">Clear</button></div>
+                <div class="log-header">收到的消息 <button class="btn btn-sm btn-ghost" onclick="clearLog('push')">清空</button></div>
                 <div class="log-body" id="push-log"></div>
             </div>
         `;
@@ -1010,7 +1076,7 @@
         setTimeout(() => {
             const status = document.getElementById('push-status');
             if (status) {
-                status.textContent = client.connected ? `Connected as ${userId}` : 'Connecting...';
+                status.textContent = client.connected ? `已连接: ${userId}` : '连接中...';
                 status.className = client.connected ? 'badge badge-success' : 'badge badge-warning';
             }
         }, 500);
@@ -1026,11 +1092,11 @@
         else if (type === 'broadcast') url = '/api/push/broadcast';
         else url = `/api/push/rooms/${target}`;
         const result = await api(url, { method: 'POST', body });
-        showToast(`Sent to ${result?.sent || 0} connections`, 'success');
+        showToast(`已发送至 ${result?.sent || 0} 个连接`, 'success');
     }
 
     // ============================================================
-    // Danmaku Module
+    // 弹幕直播模块
     // ============================================================
     let danmakuUser = null;
 
@@ -1038,42 +1104,61 @@
         const panel = document.getElementById('panel-danmaku');
         panel.innerHTML = `
             <div class="card">
-                <div class="card-title"><i data-lucide="radio" style="width:20px;height:20px"></i> Live Danmaku</div>
+                <div class="card-title"><i data-lucide="radio" style="width:20px;height:20px"></i> 直播弹幕</div>
                 <p style="color:var(--text-secondary);margin-bottom:16px;font-size:14px">
-                    Simulated live stream with floating danmaku messages. Rate limited to 5 msg/user/sec.
+                    模拟直播间飘屏弹幕，限速 5 条/用户/秒，支持禁言管理
                 </p>
                 <div class="form-row">
                     <select class="select" id="danmaku-user" style="max-width:150px" onchange="danmakuConnect()">
-                        <option value="">Select user...</option>
+                        <option value="">请选择用户...</option>
                         <option value="alice">Alice</option><option value="bob">Bob</option><option value="charlie">Charlie</option>
                     </select>
-                    <span id="danmaku-status" class="badge badge-error">Not connected</span>
-                    <span id="danmaku-count" class="badge badge-info">0 viewers</span>
+                    <span id="danmaku-status" class="badge badge-error">未连接</span>
+                    <span id="danmaku-count" class="badge badge-info">0 人观看</span>
                 </div>
             </div>
             <div class="danmaku-area" id="danmaku-screen">
+                <div class="video-simulation"></div>
                 <div class="danmaku-overlay">
-                    <div style="font-size:18px;font-weight:600">LIVE: Room live-room-1</div>
-                    <div style="font-size:12px;opacity:0.7;margin-top:4px">Zhi PM Danmaku Demo</div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span class="live-badge">LIVE</span>
+                        <span style="font-size:16px;font-weight:600">直播中：直播间 live-room-1</span>
+                    </div>
+                    <div class="live-info" style="margin-top:8px">
+                        <span>主播: ZhiPM官方</span>
+                        <span id="danmaku-viewer-info">0 人观看</span>
+                        <span class="like-btn" id="danmaku-like-btn" onclick="danmakuLike()">
+                            <i data-lucide="heart" style="width:14px;height:14px"></i>
+                            <span id="danmaku-like-count">0</span>
+                        </span>
+                    </div>
+                </div>
+                <div class="video-controls">
+                    <span style="cursor:pointer" title="播放/暂停">▶</span>
+                    <div class="video-progress"><div class="video-progress-bar"></div></div>
+                    <span>00:00</span>
+                    <span>/</span>
+                    <span>99:59</span>
+                    <span style="margin-left:8px">🔊</span>
                 </div>
             </div>
             <div class="danmaku-input">
-                <input class="input" id="danmaku-content" placeholder="Send danmaku..." onkeydown="if(event.key==='Enter')danmakuSend()">
+                <input class="input" id="danmaku-content" placeholder="发送弹幕..." onkeydown="if(event.key==='Enter')danmakuSend()">
                 <button class="btn btn-primary" onclick="danmakuSend()"><i data-lucide="send" style="width:14px;height:14px"></i></button>
             </div>
             <div class="card-grid">
                 <div class="card">
-                    <div class="card-title" style="font-size:15px">Muted Users</div>
-                    <div id="danmaku-muted"><span style="color:var(--text-secondary);font-size:13px">None</span></div>
+                    <div class="card-title" style="font-size:15px">已禁言用户</div>
+                    <div id="danmaku-muted"><span style="color:var(--text-secondary);font-size:13px">无</span></div>
                     <div class="form-row" style="margin-top:12px">
-                        <input class="input" id="danmaku-mute-user" placeholder="User ID" style="max-width:120px">
-                        <button class="btn btn-sm btn-danger" onclick="danmakuMute()">Mute</button>
-                        <button class="btn btn-sm btn-ghost" onclick="danmakuUnmute()">Unmute</button>
+                        <input class="input" id="danmaku-mute-user" placeholder="用户 ID" style="max-width:120px">
+                        <button class="btn btn-sm btn-danger" onclick="danmakuMute()">禁言</button>
+                        <button class="btn btn-sm btn-ghost" onclick="danmakuUnmute()">解除禁言</button>
                     </div>
                 </div>
                 <div class="card">
-                    <div class="card-title" style="font-size:15px">Rate Limit Info</div>
-                    <p style="font-size:13px;color:var(--text-secondary)">Max 5 messages per user per second. Content filtered for sensitive words (spam, ads).</p>
+                    <div class="card-title" style="font-size:15px">限流信息</div>
+                    <p style="font-size:13px;color:var(--text-secondary)">每用户限速 5 条/秒，内容过滤敏感词（spam、ads）</p>
                     <div id="danmaku-rate-info" style="margin-top:8px;font-size:13px"></div>
                 </div>
             </div>
@@ -1096,7 +1181,7 @@
         });
         client.on('*', (msg) => {
             if (msg.type === 'danmaku.error') {
-                showToast(`Danmaku error: ${msg.payload?.message || 'unknown'}`, 'error');
+                showToast(`弹幕错误: ${msg.payload?.message || '未知'}`, 'error');
             }
         });
         Store.wsClients['danmaku'] = client;
@@ -1105,7 +1190,7 @@
         setTimeout(() => {
             const status = document.getElementById('danmaku-status');
             if (status) {
-                status.textContent = client.connected ? `${userId} in live-room-1` : 'Connecting...';
+                status.textContent = client.connected ? `${userId} 已加入 live-room-1` : '连接中...';
                 status.className = client.connected ? 'badge badge-success' : 'badge badge-warning';
             }
         }, 500);
@@ -1128,7 +1213,7 @@
         if (!content) return;
         const client = Store.wsClients['danmaku'];
         if (!client || !client.connected) {
-            showToast('Connect first', 'warning');
+            showToast('请先连接', 'warning');
             return;
         }
         client.send('danmaku.send', { roomId: 'live-room-1', content, contentType: 'text' });
@@ -1139,7 +1224,7 @@
         const userId = document.getElementById('danmaku-mute-user').value;
         if (!userId) return;
         await api(`/api/danmaku/rooms/live-room-1/mute/${userId}`, { method: 'POST' });
-        showToast(`Muted ${userId}`, 'warning');
+        showToast(`已禁言 ${userId}`, 'warning');
         danmakuRefreshMuted();
     }
 
@@ -1147,7 +1232,7 @@
         const userId = document.getElementById('danmaku-mute-user').value;
         if (!userId) return;
         await api(`/api/danmaku/rooms/live-room-1/unmute/${userId}`, { method: 'POST' });
-        showToast(`Unmuted ${userId}`, 'success');
+        showToast(`已解除禁言 ${userId}`, 'success');
         danmakuRefreshMuted();
     }
 
@@ -1156,24 +1241,27 @@
         const el = document.getElementById('danmaku-muted');
         if (el && data) {
             const users = data.mutedUsers || [];
-            el.innerHTML = users.length ? users.map(u => `<span class="badge badge-warning" style="margin-right:4px">${u}</span>`).join('') : '<span style="color:var(--text-secondary);font-size:13px">None</span>';
+            el.innerHTML = users.length ? users.map(u => `<span class="badge badge-warning" style="margin-right:4px">${u}</span>`).join('') : '<span style="color:var(--text-secondary);font-size:13px">无</span>';
         }
     }
 
     async function danmakuRefreshCount() {
         const data = await api('/api/presence/rooms/live-room-1/count');
+        const count = data?.count || 0;
         const el = document.getElementById('danmaku-count');
-        if (el && data) el.textContent = `${data.count || 0} viewers`;
+        if (el && data) el.textContent = `${count} 人观看`;
+        const viewerInfo = document.getElementById('danmaku-viewer-info');
+        if (viewerInfo) viewerInfo.textContent = `${count} 人观看`;
     }
 
     // ============================================================
-    // Chat Module
+    // 聊天室模块
     // ============================================================
     let chatUser = null;
     let chatConversations = [
-        { id: 'conv-alice-bob', name: 'Alice <-> Bob', type: 'single', members: ['alice', 'bob'] },
-        { id: 'conv-alice-charlie', name: 'Alice <-> Charlie', type: 'single', members: ['alice', 'charlie'] },
-        { id: 'group-team', name: 'Team Chat', type: 'group', members: ['alice', 'bob', 'charlie'] }
+        { id: 'conv-alice-bob', name: 'Alice 与 Bob', type: 'single', members: ['alice', 'bob'] },
+        { id: 'conv-alice-charlie', name: 'Alice 与 Charlie', type: 'single', members: ['alice', 'charlie'] },
+        { id: 'group-team', name: '团队群聊', type: 'group', members: ['alice', 'bob', 'charlie'] }
     ];
     let activeConv = null;
     let chatMessages = {};
@@ -1183,24 +1271,24 @@
         panel.innerHTML = `
             <div class="card" style="padding:12px;margin-bottom:12px">
                 <div class="form-row" style="margin-bottom:0">
-                    <span style="font-weight:600;font-size:14px">Chat as:</span>
+                    <span style="font-weight:600;font-size:14px">当前用户：</span>
                     <select class="select" id="chat-user" style="max-width:150px" onchange="chatSwitchUser()">
-                        <option value="">Select user...</option>
+                        <option value="">请选择用户...</option>
                         <option value="alice">Alice</option><option value="bob">Bob</option><option value="charlie">Charlie</option>
                     </select>
-                    <span id="chat-status" class="badge badge-error">Offline</span>
+                    <span id="chat-status" class="badge badge-error">离线</span>
                 </div>
             </div>
             <div class="chat-layout">
                 <div class="chat-sidebar">
-                    <div style="padding:12px 16px;font-weight:600;font-size:14px;border-bottom:1px solid var(--border)">Conversations</div>
+                    <div style="padding:12px 16px;font-weight:600;font-size:14px;border-bottom:1px solid var(--border)">会话列表</div>
                     <div id="chat-conv-list"></div>
                 </div>
                 <div class="chat-main">
-                    <div class="chat-header" id="chat-header">Select a conversation</div>
-                    <div class="chat-messages" id="chat-messages"><div style="text-align:center;color:var(--text-secondary);padding:40px">Select a conversation to start chatting</div></div>
+                    <div class="chat-header" id="chat-header">请选择会话</div>
+                    <div class="chat-messages" id="chat-messages"><div style="text-align:center;color:var(--text-secondary);padding:40px">请选择会话开始聊天</div></div>
                     <div class="chat-input">
-                        <input class="input" id="chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter')chatSendMessage()">
+                        <input class="input" id="chat-input" placeholder="输入消息..." onkeydown="if(event.key==='Enter')chatSendMessage()">
                         <button class="btn btn-primary" onclick="chatSendMessage()"><i data-lucide="send" style="width:14px;height:14px"></i></button>
                     </div>
                 </div>
@@ -1215,7 +1303,7 @@
         if (!list) return;
         list.innerHTML = chatConversations.map(c => {
             const msgs = chatMessages[c.id] || [];
-            const last = msgs.length > 0 ? msgs[msgs.length - 1].content.substring(0, 30) : 'No messages';
+            const last = msgs.length > 0 ? msgs[msgs.length - 1].content.substring(0, 30) : '暂无消息';
             return `
                 <div class="conv-item ${activeConv === c.id ? 'active' : ''}" onclick="chatSelectConv('${c.id}')">
                     <div>
@@ -1240,7 +1328,7 @@
             chatMessages[convId].push({ id: p.messageId, sender: p.senderId, content: p.content, time: new Date().toLocaleTimeString() });
             if (activeConv === convId) renderChatMessages(convId);
             renderConvList();
-            // Auto ACK
+            // 自动确认
             client.send('chat.ack', { messageId: p.messageId });
         });
         Store.wsClients['chat'] = client;
@@ -1248,7 +1336,7 @@
         setTimeout(() => {
             const status = document.getElementById('chat-status');
             if (status) {
-                status.textContent = client.connected ? userId : 'Connecting...';
+                status.textContent = client.connected ? userId : '连接中...';
                 status.className = client.connected ? 'badge badge-success' : 'badge badge-warning';
             }
         }, 500);
@@ -1258,17 +1346,17 @@
         activeConv = convId;
         const conv = chatConversations.find(c => c.id === convId);
         document.getElementById('chat-header').textContent = conv ? conv.name : convId;
-        // Join room if group
+        // 群聊加入房间
         if (conv && conv.type === 'group' && Store.wsClients['chat']) {
             Store.wsClients['chat'].send('room.join', { roomId: convId });
         }
-        // Send read receipt
+        // 发送已读回执
         if (Store.wsClients['chat']) {
             Store.wsClients['chat'].send('chat.read', { conversationId: convId });
         }
         renderConvList();
         renderChatMessages(convId);
-        // Load history
+        // 加载历史
         loadChatHistory(convId);
     }
 
@@ -1288,7 +1376,7 @@
         if (!container) return;
         const msgs = chatMessages[convId] || [];
         if (msgs.length === 0) {
-            container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px">No messages yet</div>';
+            container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px">暂无消息</div>';
             return;
         }
         container.innerHTML = msgs.map(m => `
@@ -1307,7 +1395,7 @@
         if (!content || !activeConv || !chatUser) return;
         const client = Store.wsClients['chat'];
         if (!client || !client.connected) {
-            showToast('Connect first', 'warning');
+            showToast('请先连接', 'warning');
             return;
         }
         const conv = chatConversations.find(c => c.id === activeConv);
@@ -1317,7 +1405,7 @@
             content,
             contentType: 'text'
         });
-        // Optimistic local add
+        // 乐观更新本地消息
         if (!chatMessages[activeConv]) chatMessages[activeConv] = [];
         chatMessages[activeConv].push({ id: 'local-' + Date.now(), sender: chatUser, content, time: new Date().toLocaleTimeString() });
         renderChatMessages(activeConv);
@@ -1326,7 +1414,7 @@
     }
 
     // ============================================================
-    // Order Tracking Module
+    // 订单追踪模块
     // ============================================================
     let orderUser = null;
     const ORDER_STATUSES = ['CREATED', 'PAID', 'SHIPPING', 'DELIVERED', 'COMPLETED'];
@@ -1335,24 +1423,25 @@
         const panel = document.getElementById('panel-orders');
         panel.innerHTML = `
             <div class="card">
-                <div class="card-title"><i data-lucide="shopping-cart" style="width:20px;height:20px"></i> Order Tracking</div>
+                <div class="card-title"><i data-lucide="shopping-cart" style="width:20px;height:20px"></i> 订单追踪</div>
                 <p style="color:var(--text-secondary);margin-bottom:16px;font-size:14px">
-                    Create orders and track status changes in real-time via WebSocket.
+                    创建订单并通过 WebSocket 实时追踪状态变更
                 </p>
                 <div class="form-row">
                     <select class="select" id="order-user" style="max-width:150px" onchange="orderConnect()">
-                        <option value="">Select user...</option>
+                        <option value="">请选择用户...</option>
                         <option value="alice">Alice</option><option value="bob">Bob</option><option value="charlie">Charlie</option>
                     </select>
-                    <span id="order-status" class="badge badge-error">Offline</span>
+                    <span id="order-status" class="badge badge-error">离线</span>
                 </div>
             </div>
             <div class="card">
-                <div class="card-title">Create Order</div>
+                <div class="card-title">创建订单</div>
                 <div class="form-row">
-                    <input class="input" id="order-product" placeholder="Product name" value="MacBook Pro">
-                    <input class="input" id="order-quantity" type="number" placeholder="Qty" value="1" style="max-width:80px">
-                    <button class="btn btn-primary" onclick="orderCreate()"><i data-lucide="plus" style="width:14px;height:14px"></i> Create</button>
+                    <input class="input" id="order-product" placeholder="商品名称" value="MacBook Pro">
+                    <input class="input" id="order-quantity" type="number" placeholder="数量" value="1" style="max-width:80px">
+                    <button class="btn btn-primary" onclick="orderCreate()"><i data-lucide="plus" style="width:14px;height:14px"></i> 创建</button>
+                    <button class="btn btn-ghost" onclick="orderGenerateSamples()"><i data-lucide="package" style="width:14px;height:14px"></i> 生成示例订单</button>
                 </div>
             </div>
             <div id="order-list"></div>
@@ -1368,11 +1457,11 @@
         orderUser = userId;
         const client = new WsClient('orders', `${WS_BASE}/ws?access_token=${userId}-token`, userId);
         client.on('order.created', (msg) => {
-            showToast(`Order created: ${msg.payload?.orderId}`, 'success');
+            showToast(`订单已创建: ${msg.payload?.orderId}`, 'success');
             orderRefreshList();
         });
         client.on('order.status.changed', (msg) => {
-            showToast(`Order ${msg.payload?.orderId}: ${msg.payload?.status}`, 'info');
+            showToast(`订单 ${msg.payload?.orderId}: ${msg.payload?.status}`, 'info');
             orderRefreshList();
         });
         Store.wsClients['orders'] = client;
@@ -1380,19 +1469,19 @@
         setTimeout(() => {
             const status = document.getElementById('order-status');
             if (status) {
-                status.textContent = client.connected ? userId : 'Connecting...';
+                status.textContent = client.connected ? userId : '连接中...';
                 status.className = client.connected ? 'badge badge-success' : 'badge badge-warning';
             }
         }, 500);
     }
 
     async function orderCreate() {
-        if (!orderUser) { showToast('Select a user first', 'warning'); return; }
+        if (!orderUser) { showToast('请先选择用户', 'warning'); return; }
         const product = document.getElementById('order-product').value;
         const quantity = parseInt(document.getElementById('order-quantity').value) || 1;
         const result = await api('/api/orders', { method: 'POST', body: JSON.stringify({ userId: orderUser, product, quantity }) });
         if (result && result.orderId) {
-            showToast(`Order ${result.orderId} created`, 'success');
+            showToast(`订单 ${result.orderId} 已创建`, 'success');
             orderRefreshList();
         }
     }
@@ -1404,7 +1493,7 @@
         if (!container || !data) return;
         const orders = data.orders || [];
         if (orders.length === 0) {
-            container.innerHTML = '<div class="card"><div style="text-align:center;color:var(--text-secondary);padding:20px">No orders yet</div></div>';
+            container.innerHTML = '<div class="card"><div style="text-align:center;color:var(--text-secondary);padding:20px">暂无订单</div></div>';
             return;
         }
         container.innerHTML = orders.map(o => {
@@ -1422,7 +1511,7 @@
                     ${statusIndex < ORDER_STATUSES.length - 1 ? `
                         <div style="margin-top:12px">
                             <button class="btn btn-sm btn-ghost" onclick="orderAdvance('${o.orderId}', '${ORDER_STATUSES[statusIndex + 1]}')">
-                                Advance to ${ORDER_STATUSES[statusIndex + 1]}
+                                推进至 ${ORDER_STATUSES[statusIndex + 1]}
                             </button>
                         </div>
                     ` : ''}
@@ -1437,35 +1526,35 @@
     }
 
     // ============================================================
-    // Admin Module
+    // 管理后台模块
     // ============================================================
     function render_admin() {
         const panel = document.getElementById('panel-admin');
         panel.innerHTML = `
             <div class="card-grid" id="admin-stats"></div>
             <div class="card">
-                <div class="card-title"><i data-lucide="users" style="width:20px;height:20px"></i> Active Connections
-                    <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="adminLoadConnections()">Refresh</button>
+                <div class="card-title"><i data-lucide="users" style="width:20px;height:20px"></i> 活跃连接
+                    <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="adminLoadConnections()">刷新</button>
                 </div>
                 <table class="table">
-                    <thead><tr><th>Session</th><th>User</th><th>Connected</th><th>Heartbeat</th><th>Action</th></tr></thead>
-                    <tbody id="admin-conn-table"><tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">Loading...</td></tr></tbody>
+                    <thead><tr><th>会话 ID</th><th>用户</th><th>连接时间</th><th>心跳时间</th><th>操作</th></tr></thead>
+                    <tbody id="admin-conn-table"><tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">加载中...</td></tr></tbody>
                 </table>
             </div>
             <div class="card">
-                <div class="card-title"><i data-lucide="home" style="width:20px;height:20px"></i> Active Rooms
-                    <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="adminLoadRooms()">Refresh</button>
+                <div class="card-title"><i data-lucide="home" style="width:20px;height:20px"></i> 活跃房间
+                    <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="adminLoadRooms()">刷新</button>
                 </div>
                 <table class="table">
-                    <thead><tr><th>Room ID</th><th>Members</th><th>Action</th></tr></thead>
-                    <tbody id="admin-room-table"><tr><td colspan="3" style="text-align:center;color:var(--text-secondary)">Loading...</td></tr></tbody>
+                    <thead><tr><th>房间 ID</th><th>成员数</th><th>操作</th></tr></thead>
+                    <tbody id="admin-room-table"><tr><td colspan="3" style="text-align:center;color:var(--text-secondary)">加载中...</td></tr></tbody>
                 </table>
             </div>
             <div class="card">
-                <div class="card-title">Broadcast Message</div>
+                <div class="card-title">广播消息</div>
                 <div class="form-row">
-                    <input class="input" id="admin-broadcast-msg" placeholder="Broadcast message...">
-                    <button class="btn btn-primary" onclick="adminBroadcast()">Send</button>
+                    <input class="input" id="admin-broadcast-msg" placeholder="广播消息...">
+                    <button class="btn btn-primary" onclick="adminBroadcast()">发送</button>
                 </div>
             </div>
         `;
@@ -1480,10 +1569,10 @@
         const container = document.getElementById('admin-stats');
         if (!container || !stats) return;
         container.innerHTML = `
-            <div class="stat-card"><div class="stat-label">Connections</div><div class="stat-value">${stats.activeConnections || 0}</div></div>
-            <div class="stat-card"><div class="stat-label">Online Users</div><div class="stat-value">${stats.onlineUsers || 0}</div></div>
-            <div class="stat-card"><div class="stat-label">Rooms</div><div class="stat-value">${stats.activeRooms || 0}</div></div>
-            <div class="stat-card"><div class="stat-label">Success Rate</div><div class="stat-value">${((stats.pushSuccessRate || 1) * 100).toFixed(1)}%</div></div>
+            <div class="stat-card"><div class="stat-label">连接数</div><div class="stat-value">${stats.activeConnections || 0}</div></div>
+            <div class="stat-card"><div class="stat-label">在线用户</div><div class="stat-value">${stats.onlineUsers || 0}</div></div>
+            <div class="stat-card"><div class="stat-label">房间数</div><div class="stat-value">${stats.activeRooms || 0}</div></div>
+            <div class="stat-card"><div class="stat-label">成功率</div><div class="stat-value">${((stats.pushSuccessRate || 1) * 100).toFixed(1)}%</div></div>
         `;
     }
 
@@ -1492,7 +1581,7 @@
         const tbody = document.getElementById('admin-conn-table');
         if (!tbody || !conns) return;
         if (conns.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">No connections</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">暂无连接</td></tr>';
             return;
         }
         tbody.innerHTML = conns.map(c => `
@@ -1501,7 +1590,7 @@
                 <td>${c.userId}</td>
                 <td>${c.connectedAt ? new Date(c.connectedAt).toLocaleTimeString() : '-'}</td>
                 <td>${c.lastHeartbeatAt ? new Date(c.lastHeartbeatAt).toLocaleTimeString() : '-'}</td>
-                <td><button class="btn btn-sm btn-danger" onclick="adminKick('${c.sessionId}')">Kick</button></td>
+                <td><button class="btn btn-sm btn-danger" onclick="adminKick('${c.sessionId}')">踢出</button></td>
             </tr>
         `).join('');
     }
@@ -1511,14 +1600,14 @@
         const tbody = document.getElementById('admin-room-table');
         if (!tbody || !rooms) return;
         if (rooms.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-secondary)">No rooms</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-secondary)">暂无房间</td></tr>';
             return;
         }
         tbody.innerHTML = rooms.map(r => `
             <tr>
                 <td>${r.roomId}</td>
                 <td>${r.memberCount}</td>
-                <td><button class="btn btn-sm btn-ghost" onclick="adminViewMembers('${r.roomId}')">Members</button></td>
+                <td><button class="btn btn-sm btn-ghost" onclick="adminViewMembers('${r.roomId}')">成员</button></td>
             </tr>
         `).join('');
     }
@@ -1526,7 +1615,7 @@
     async function adminKick(sessionId) {
         if (!confirm(`Kick session ${sessionId}?`)) return;
         await api(`/admin/api/connections/${sessionId}`, { method: 'DELETE' });
-        showToast('Connection kicked', 'warning');
+        showToast('连接已踢出', 'warning');
         adminLoadConnections();
     }
 
@@ -1534,7 +1623,7 @@
         const data = await api(`/admin/api/rooms/${roomId}/members`);
         if (data) {
             const members = data.map(m => m.userId).join(', ');
-            showToast(`Room ${roomId}: ${members}`, 'info');
+            showToast(`房间 ${roomId}: ${members}`, 'info');
         }
     }
 
@@ -1542,11 +1631,11 @@
         const msg = document.getElementById('admin-broadcast-msg').value;
         if (!msg) return;
         const result = await api('/admin/api/broadcast', { method: 'POST', body: JSON.stringify({ type: 'admin.broadcast', payload: { message: msg } }) });
-        showToast(`Broadcast sent to ${result?.sent || 0}`, 'success');
+        showToast(`广播已发送至 ${result?.sent || 0} 个连接`, 'success');
     }
 
     // ============================================================
-    // Metrics Module
+    // 实时指标模块
     // ============================================================
     let metricsInterval = null;
     let metricsHistory = { connections: [], messages: [], successRate: [] };
@@ -1559,11 +1648,11 @@
             <div class="card-grid" id="metrics-stats"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
                 <div class="chart-container">
-                    <div class="chart-title">Active Connections</div>
+                    <div class="chart-title">活跃连接数</div>
                     <canvas id="chart-connections"></canvas>
                 </div>
                 <div class="chart-container">
-                    <div class="chart-title">Success Rate (%)</div>
+                    <div class="chart-title">成功率 (%)</div>
                     <canvas id="chart-success"></canvas>
                 </div>
             </div>
@@ -1586,10 +1675,10 @@
         const container = document.getElementById('metrics-stats');
         if (container) {
             container.innerHTML = `
-                <div class="stat-card"><div class="stat-label">Connections</div><div class="stat-value">${stats.activeConnections || 0}</div></div>
-                <div class="stat-card"><div class="stat-label">Users</div><div class="stat-value">${stats.onlineUsers || 0}</div></div>
-                <div class="stat-card"><div class="stat-label">Rooms</div><div class="stat-value">${stats.activeRooms || 0}</div></div>
-                <div class="stat-card"><div class="stat-label">Push Rate</div><div class="stat-value">${((stats.pushSuccessRate || 1) * 100).toFixed(1)}%</div></div>
+                <div class="stat-card"><div class="stat-label">连接数</div><div class="stat-value">${stats.activeConnections || 0}</div></div>
+                <div class="stat-card"><div class="stat-label">用户数</div><div class="stat-value">${stats.onlineUsers || 0}</div></div>
+                <div class="stat-card"><div class="stat-label">房间数</div><div class="stat-value">${stats.activeRooms || 0}</div></div>
+                <div class="stat-card"><div class="stat-label">推送成功率</div><div class="stat-value">${((stats.pushSuccessRate || 1) * 100).toFixed(1)}%</div></div>
             `;
         }
         drawChart('chart-connections', metricsHistory.connections, '#007AFF');
@@ -1612,7 +1701,7 @@
         ctx.clearRect(0, 0, w, h);
         const min = minVal !== undefined ? minVal : Math.min(...data) * 0.9;
         const max = maxVal !== undefined ? maxVal : Math.max(...data) * 1.1 || 1;
-        // Grid lines
+        // 网格线
         ctx.strokeStyle = 'rgba(0,0,0,0.06)';
         ctx.lineWidth = 1;
         for (let i = 0; i <= 4; i++) {
@@ -1626,7 +1715,7 @@
             ctx.textAlign = 'right';
             ctx.fillText((max - (max - min) * (i / 4)).toFixed(0), padding.left - 6, y + 4);
         }
-        // Line
+        // 折线
         ctx.beginPath();
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
@@ -1637,7 +1726,7 @@
             if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
         ctx.stroke();
-        // Fill
+        // 填充
         const lastX = padding.left + plotW;
         const lastY = padding.top + plotH - ((data[data.length - 1] - min) / (max - min)) * plotH;
         ctx.lineTo(lastX, padding.top + plotH);
@@ -1645,6 +1734,41 @@
         ctx.closePath();
         ctx.fillStyle = color.replace(')', ',0.1)').replace('rgb', 'rgba');
         ctx.fill();
+    }
+
+    // 弹幕点赞
+    let danmakuLikeCount = 0;
+    function danmakuLike() {
+        danmakuLikeCount++;
+        const el = document.getElementById('danmaku-like-count');
+        if (el) el.textContent = danmakuLikeCount;
+    }
+
+    // 生成示例订单
+    async function orderGenerateSamples() {
+        if (!orderUser) { showToast('请先选择用户', 'warning'); return; }
+        const samples = [
+            { product: 'MacBook Pro 16"', quantity: 1 },
+            { product: 'iPhone 16 Pro', quantity: 2 },
+            { product: 'AirPods Pro', quantity: 3 }
+        ];
+        for (const s of samples) {
+            await api('/api/orders', { method: 'POST', body: JSON.stringify({ userId: orderUser, ...s }) });
+        }
+        // 推进第一个订单到 PAID
+        const data = await api(`/api/orders/user/${orderUser}`);
+        if (data?.orders?.length > 0) {
+            const first = data.orders[0];
+            await api(`/api/orders/${first.orderId}/status`, { method: 'POST', body: JSON.stringify({ status: 'PAID' }) });
+        }
+        // 推进第二个订单到 SHIPPING
+        if (data?.orders?.length > 1) {
+            const second = data.orders[1];
+            await api(`/api/orders/${second.orderId}/status`, { method: 'POST', body: JSON.stringify({ status: 'PAID' }) });
+            await api(`/api/orders/${second.orderId}/status`, { method: 'POST', body: JSON.stringify({ status: 'SHIPPING' }) });
+        }
+        showToast('示例订单已生成', 'success');
+        orderRefreshList();
     }
     </script>
 </body>
