@@ -1,5 +1,5 @@
 /* ============================================================
-   运维管理页面样式
+   运维管理页面样式 — macOS 风格
    ============================================================ */
 
 /* 实时脉冲指示器 */
@@ -23,34 +23,34 @@
     inset: -3px;
     border-radius: 50%;
     background: var(--success);
-    opacity: 0.4;
+    opacity: 0.3;
     animation: opsPulseRing 1.5s ease-out infinite;
 }
 @keyframes opsPulseRing {
-    0% { transform: scale(1); opacity: 0.4; }
+    0% { transform: scale(1); opacity: 0.3; }
     100% { transform: scale(2.2); opacity: 0; }
 }
 
-/* 统计卡片增强 */
+/* 统计卡片 */
 .ops-stat {
     background: var(--card-bg);
-    backdrop-filter: var(--card-blur);
-    border-radius: 14px;
+    border-radius: 12px;
     padding: 18px 20px;
-    border: 1px solid var(--border);
+    border: 0.5px solid var(--border);
+    box-shadow: var(--card-shadow);
     position: relative;
     overflow: hidden;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: box-shadow 0.2s;
 }
-.ops-stat:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+.ops-stat:hover { box-shadow: var(--card-shadow-hover); }
 .ops-stat-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 .ops-stat-label {
     font-size: 12px;
@@ -59,10 +59,11 @@
     font-weight: 500;
 }
 .ops-stat-value {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 700;
     line-height: 1;
     margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
 }
 .ops-stat-trend {
     font-size: 11px;
@@ -75,37 +76,30 @@
 }
 .ops-stat-trend.up { color: var(--success); background: rgba(52,199,89,0.1); }
 .ops-stat-trend.down { color: var(--error); background: rgba(255,59,48,0.1); }
-.ops-stat-trend.flat { color: var(--text-secondary); background: rgba(134,134,139,0.1); }
-.ops-stat-sparkline {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 100px;
-    height: 40px;
-    opacity: 0.15;
-}
+.ops-stat-trend.flat { color: var(--text-secondary); background: rgba(134,134,139,0.08); }
 
 /* 连接/房间卡片 */
 .ops-entity-card {
-    background: var(--input-bg);
-    border-radius: 12px;
-    padding: 14px 16px;
-    border: 1px solid var(--border);
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 12px 14px;
+    border: 0.5px solid var(--border);
+    box-shadow: var(--card-shadow);
     display: flex;
     align-items: center;
     gap: 12px;
-    transition: all 0.2s;
+    transition: all 0.15s;
     cursor: default;
 }
 .ops-entity-card:hover {
     border-color: var(--accent);
-    background: rgba(0,122,255,0.04);
+    box-shadow: var(--card-shadow-hover);
 }
 .ops-entity-card.new-item {
-    animation: opsSlideIn 0.4s ease-out;
+    animation: opsSlideIn 0.3s ease-out;
 }
 @keyframes opsSlideIn {
-    from { opacity: 0; transform: translateX(-12px); }
+    from { opacity: 0; transform: translateX(-8px); }
     to { opacity: 1; transform: translateX(0); }
 }
 
@@ -115,26 +109,26 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
 }
 .ops-event {
     display: flex;
     align-items: flex-start;
     gap: 8px;
     padding: 6px 10px;
-    border-radius: 8px;
+    border-radius: 6px;
     font-size: 12px;
     line-height: 1.4;
-    animation: opsFadeIn 0.3s ease;
-    transition: background 0.15s;
+    animation: opsFadeIn 0.2s ease;
+    transition: background 0.1s;
 }
-.ops-event:hover { background: var(--input-bg); }
+.ops-event:hover { background: var(--sidebar-hover); }
 .ops-event-time {
     color: var(--text-secondary);
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: 'SF Mono', 'Fira Code', 'Menlo', monospace;
     font-size: 11px;
     flex-shrink: 0;
-    min-width: 60px;
+    min-width: 56px;
 }
 .ops-event-type {
     font-weight: 600;
@@ -145,57 +139,58 @@
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
-.ops-event-type.connect { background: rgba(52,199,89,0.15); color: var(--success); }
-.ops-event-type.disconnect { background: rgba(255,59,48,0.15); color: var(--error); }
-.ops-event-type.message { background: rgba(0,122,255,0.15); color: var(--accent); }
-.ops-event-type.broadcast { background: rgba(255,149,0,0.15); color: var(--warning); }
-.ops-event-type.room { background: rgba(199,128,255,0.15); color: #C780FF; }
-.ops-event-type.kick { background: rgba(255,59,48,0.15); color: var(--error); }
+.ops-event-type.connect { background: rgba(52,199,89,0.1); color: var(--success); }
+.ops-event-type.disconnect { background: rgba(255,59,48,0.1); color: var(--error); }
+.ops-event-type.message { background: rgba(0,122,255,0.1); color: var(--accent); }
+.ops-event-type.broadcast { background: rgba(255,149,0,0.1); color: var(--warning); }
+.ops-event-type.room { background: rgba(199,128,255,0.1); color: #C780FF; }
+.ops-event-type.kick { background: rgba(255,59,48,0.1); color: var(--error); }
 .ops-event-data { color: var(--text-primary); flex: 1; min-width: 0; }
 @keyframes opsFadeIn {
-    from { opacity: 0; transform: translateY(-4px); }
+    from { opacity: 0; transform: translateY(-3px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
 /* 健康状态指示 */
 .ops-health {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 .ops-health-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: var(--input-bg);
+    background: var(--card-bg);
     border-radius: 10px;
     padding: 10px 14px;
-    border: 1px solid var(--border);
+    border: 0.5px solid var(--border);
+    box-shadow: var(--card-shadow);
     min-width: 140px;
-    transition: all 0.2s;
+    transition: box-shadow 0.15s;
 }
 .ops-health-dot {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
 }
-.ops-health-dot.healthy { background: var(--success); box-shadow: 0 0 0 3px rgba(52,199,89,0.2); }
-.ops-health-dot.warning { background: var(--warning); box-shadow: 0 0 0 3px rgba(255,149,0,0.2); }
-.ops-health-dot.error { background: var(--error); box-shadow: 0 0 0 3px rgba(255,59,48,0.2); }
-.ops-health-label { font-size: 13px; font-weight: 500; }
+.ops-health-dot.healthy { background: var(--success); box-shadow: 0 0 0 3px rgba(52,199,89,0.15); }
+.ops-health-dot.warning { background: var(--warning); box-shadow: 0 0 0 3px rgba(255,149,0,0.15); }
+.ops-health-dot.error { background: var(--error); box-shadow: 0 0 0 3px rgba(255,59,48,0.15); }
+.ops-health-label { font-size: 13px; font-weight: 600; }
 .ops-health-value { font-size: 12px; color: var(--text-secondary); }
 
-/* 图表容器增强 */
+/* 图表容器 */
 .ops-chart {
     background: var(--card-bg);
-    backdrop-filter: var(--card-blur);
-    border-radius: 14px;
+    border-radius: 12px;
     padding: 20px;
-    border: 1px solid var(--border);
-    transition: transform 0.2s;
+    border: 0.5px solid var(--border);
+    box-shadow: var(--card-shadow);
+    transition: box-shadow 0.15s;
 }
-.ops-chart:hover { transform: translateY(-1px); }
+.ops-chart:hover { box-shadow: var(--card-shadow-hover); }
 .ops-chart-header {
     display: flex;
     align-items: center;
@@ -203,16 +198,18 @@
     margin-bottom: 16px;
 }
 .ops-chart-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     display: flex;
     align-items: center;
     gap: 8px;
+    color: var(--text-secondary);
 }
 .ops-chart-current {
     font-size: 20px;
     font-weight: 700;
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: 'SF Mono', 'Fira Code', 'Menlo', monospace;
+    font-variant-numeric: tabular-nums;
 }
 .ops-chart-controls {
     display: flex;
@@ -222,14 +219,14 @@
 
 /* 数字动画 */
 .ops-number-animate {
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
 }
 .ops-number-animate.changed {
-    animation: opsNumberPop 0.4s ease;
+    animation: opsNumberPop 0.3s ease;
 }
 @keyframes opsNumberPop {
     0% { transform: scale(1); }
-    30% { transform: scale(1.15); }
+    30% { transform: scale(1.08); }
     100% { transform: scale(1); }
 }
 
@@ -241,16 +238,16 @@
     margin-bottom: 16px;
 }
 .ops-section-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 .ops-section-title {
     font-weight: 600;
-    font-size: 15px;
+    font-size: 14px;
 }
 .ops-section-subtitle {
     font-size: 11px;
@@ -262,27 +259,28 @@
     gap: 6px;
 }
 
-/* 广播输入增强 */
+/* 广播输入 */
 .ops-broadcast-area {
     background: var(--input-bg);
-    border-radius: 12px;
-    padding: 16px;
-    border: 1px solid var(--border);
-    transition: border-color 0.2s;
+    border-radius: 10px;
+    padding: 14px;
+    border: 0.5px solid var(--border);
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 .ops-broadcast-area:focus-within {
     border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,122,255,0.1);
 }
 .ops-broadcast-area textarea {
     background: transparent;
     border: none;
     outline: none;
     width: 100%;
-    font-size: 14px;
+    font-size: 13px;
     font-family: inherit;
     color: var(--text-primary);
     resize: none;
-    min-height: 60px;
+    min-height: 56px;
 }
 .ops-broadcast-area textarea::placeholder {
     color: var(--text-secondary);

@@ -3,11 +3,11 @@
     border-radius: 12px;
     padding: 14px 16px;
     box-shadow: var(--card-shadow);
-    border: 1px solid var(--border);
+    border: 0.5px solid var(--border);
     margin-bottom: 10px;
     transition: transform 0.2s, box-shadow 0.2s;
 }
-.order-card:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+.order-card:hover { box-shadow: var(--card-shadow-hover); }
 .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .order-id { font-weight: 600; font-size: 14px; font-family: 'SF Mono', 'Fira Code', monospace; }
 .order-detail { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
