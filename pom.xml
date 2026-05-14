@@ -9,6 +9,7 @@
     <module>zhi-pm-core</module>
     <module>zhi-pm-spring-boot-autoconfigure</module>
     <module>zhi-pm-spring-boot-starter</module>
+    <module>zhi-pm-room</module>
     <module>zhi-pm-broker-redis</module>
     <module>zhi-pm-broker-kafka</module>
     <module>zhi-pm-danmaku</module>

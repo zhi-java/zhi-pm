@@ -7,5 +7,6 @@
     <module>business</module>
     <module>realtime</module>
     <module>operations</module>
+    <module>showcase</module>
   </modules>
 </project>
