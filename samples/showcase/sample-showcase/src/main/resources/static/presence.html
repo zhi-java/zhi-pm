@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线状态 - Zhi PM 演示中心</title>
+    <link rel="stylesheet" href="css/shared.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+    <div class="topbar">
+        <div class="topbar-title">
+            <i data-lucide="radio" style="width:20px;height:20px"></i>
+            Zhi PM 演示中心
+        </div>
+        <div class="topbar-right">
+            <div class="ws-status">
+                <div class="ws-dot" id="ws-dot"></div>
+                <span id="ws-label">未连接</span>
+            </div>
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+                <i data-lucide="moon" id="theme-icon" style="width:18px;height:18px"></i>
+            </button>
+        </div>
+    </div>
+    <div class="main">
+        <nav class="sidebar">
+            <div class="sidebar-section">功能模块</div>
+            <a class="nav-item active" href="presence.html">
+                <i data-lucide="activity"></i><span>在线状态</span>
+            </a>
+            <a class="nav-item" href="push.html">
+                <i data-lucide="send"></i><span>消息推送</span>
+            </a>
+            <a class="nav-item" href="danmaku.html">
+                <i data-lucide="radio"></i><span>直播弹幕</span>
+            </a>
+            <a class="nav-item" href="chat.html">
+                <i data-lucide="message-square"></i><span>聊天室</span>
+            </a>
+            <a class="nav-item" href="orders.html">
+                <i data-lucide="shopping-cart"></i><span>订单追踪</span>
+            </a>
+            <div class="sidebar-section">运维管理</div>
+            <a class="nav-item" href="admin.html">
+                <i data-lucide="settings"></i><span>管理后台</span>
+            </a>
+            <a class="nav-item" href="metrics.html">
+                <i data-lucide="bar-chart-3"></i><span>实时指标</span>
+            </a>
+        </nav>
+        <div class="content">
+            <div class="content-inner">
+                <div id="panel-presence" class="panel active"></div>
+            </div>
+        </div>
+    </div>
+    <div class="toast-container" id="toasts"></div>
+    <script src="js/shared.js"></script>
+    <script src="js/presence.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => { render_presence(); });
+    </script>
+</body>
+</html>

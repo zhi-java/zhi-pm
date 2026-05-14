@@ -1,0 +1,31 @@
+# ============================================================
+# Dockerfile.local - uses pre-built jar from local Maven build
+# Build locally first: mvn clean package -pl samples/showcase/sample-showcase -am -DskipTests
+# ============================================================
+
+FROM eclipse-temurin:21-jre-alpine
+
+LABEL maintainer="io.github.zhi"
+LABEL description="Zhi PM Showcase - 演示所有功能的统一前端应用"
+
+RUN addgroup -S zhipm && adduser -S zhipm -G zhipm
+
+WORKDIR /app
+
+COPY samples/showcase/sample-showcase/target/sample-showcase-*.jar app.jar
+
+RUN mkdir -p /app/logs && chown -R zhipm:zhipm /app
+
+USER zhipm
+
+EXPOSE 8088
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
+  CMD wget -q --spider http://localhost:8088/actuator/health || exit 1
+
+ENV JAVA_OPTS="-XX:+UseContainerSupport \
+  -XX:MaxRAMPercentage=75.0 \
+  -XX:InitialRAMPercentage=50.0 \
+  -Djava.security.egd=file:/dev/./urandom"
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

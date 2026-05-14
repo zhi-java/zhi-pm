@@ -1,0 +1,62 @@
+.order-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border);
+    margin-bottom: 10px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.order-card:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+.order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.order-id { font-weight: 600; font-size: 14px; font-family: 'SF Mono', 'Fira Code', monospace; }
+.order-detail { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
+
+/* Timeline */
+.order-timeline {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    position: relative;
+    padding: 8px 0;
+}
+.order-timeline::before {
+    content: '';
+    position: absolute;
+    top: 18px;
+    left: 20px;
+    right: 20px;
+    height: 2px;
+    background: var(--border);
+    z-index: 0;
+}
+.order-timeline-step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+}
+.order-timeline-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--border);
+    margin-bottom: 6px;
+    transition: all 0.3s;
+    flex-shrink: 0;
+}
+.order-timeline-step.active .order-timeline-dot {
+    transform: scale(1.1);
+}
+.order-timeline-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-align: center;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+.order-timeline-step.active .order-timeline-label {
+    font-weight: 600;
+}

@@ -1,0 +1,137 @@
+.danmaku-area {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    max-height: 480px;
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1) inset;
+}
+.danmaku-area video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.danmaku-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 16px 20px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    pointer-events: none;
+    z-index: 5;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+.danmaku-overlay-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    pointer-events: auto;
+}
+.danmaku-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 4;
+}
+.danmaku-item {
+    position: absolute;
+    white-space: nowrap;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.4;
+    padding: 4px 0;
+    pointer-events: none;
+    animation: danmakuFloat 10s linear forwards;
+    will-change: transform;
+}
+.danmaku-item .danmaku-user {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-right: 6px;
+    vertical-align: middle;
+    opacity: 0.9;
+}
+.danmaku-item .danmaku-text {
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.5), 0 2px 12px rgba(0,0,0,0.3);
+    vertical-align: middle;
+}
+.danmaku-user-alice { background: rgba(255,107,107,0.8); color: #fff; }
+.danmaku-user-bob { background: rgba(78,205,196,0.8); color: #fff; }
+.danmaku-user-charlie { background: rgba(199,128,255,0.8); color: #fff; }
+@keyframes danmakuFloat {
+    from { transform: translateX(100%); opacity: 1; }
+    80% { opacity: 1; }
+    to { transform: translateX(-100%); opacity: 0; }
+}
+.danmaku-video-fallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.6);
+    font-size: 14px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+}
+.danmaku-input { display: flex; gap: 8px; margin-bottom: 16px; }
+.danmaku-input .input { flex: 1; }
+.live-badge {
+    background: #FF3B30;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    animation: livePulse 2s ease-in-out infinite;
+}
+@keyframes livePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+.live-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.8);
+}
+.like-btn {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: rgba(255,255,255,0.9);
+    transition: all 0.2s;
+}
+.like-btn:hover { color: #FF3B30; transform: scale(1.1); }
+.like-btn:active { transform: scale(1.3); }
+.danmaku-channel-select {
+    background: rgba(0,0,0,0.4);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    max-width: 160px;
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+}
+.danmaku-channel-select:focus {
+    outline: none;
+    border-color: rgba(255,255,255,0.4);
+}

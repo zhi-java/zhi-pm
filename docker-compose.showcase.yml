@@ -5,7 +5,7 @@ services:
   showcase:
     build:
       context: .
-      dockerfile: samples/showcase/sample-showcase/Dockerfile
+      dockerfile: samples/showcase/sample-showcase/Dockerfile.local
     container_name: zhipm-showcase
     restart: unless-stopped
     ports:
