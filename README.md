@@ -12,6 +12,10 @@
 
 Zhi Push Message (zhi-pm) 是一个开源、响应式、高性能、可观测、可扩展的 Spring Boot WebSocket 实时消息网关。
 
+<p align="center">
+  <img src="docs/screenshots/landing.png" alt="Zhi Push Message Landing" width="100%" />
+</p>
+
 它不是一个简单的 WebSocket Demo，而是一个面向真实业务场景的实时通信网关，覆盖：
 
 - 企业实时通知
@@ -52,6 +56,20 @@ Zhi Push Message (zhi-pm) 是一个开源、响应式、高性能、可观测、
 - 幂等会话清理（正常关闭、异常、取消）
 - 条件化自动配置，支持业务覆盖默认 Bean
 - Docker / Helm Chart 一键部署
+
+### Showcase
+
+| 在线状态 | 消息推送 | 直播弹幕 |
+|:--------:|:--------:|:--------:|
+| ![在线状态](docs/screenshots/presence.png) | ![消息推送](docs/screenshots/push.png) | ![直播弹幕](docs/screenshots/danmaku.png) |
+
+| 聊天室 | 订单追踪 | API 接入 |
+|:------:|:--------:|:--------:|
+| ![聊天室](docs/screenshots/chat.png) | ![订单追踪](docs/screenshots/orders.png) | ![API 接入](docs/screenshots/api.png) |
+
+| 管理后台 | 实时指标 |
+|:--------:|:--------:|
+| ![管理后台](docs/screenshots/admin.png) | ![实时指标](docs/screenshots/metrics.png) |
 
 ---
 
