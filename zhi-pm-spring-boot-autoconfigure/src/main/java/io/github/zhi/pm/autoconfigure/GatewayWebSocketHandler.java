@@ -76,6 +76,7 @@ public final class GatewayWebSocketHandler implements WebSocketHandler {
             Mono<Void> send = session.send(outbound);
             Mono<Void> timeout = heartbeatTimeout(connection);
             return registry.register(connection)
+                    .then(drainOfflineMessages(connection.userId()))
                     .then(Mono.firstWithSignal(Mono.when(receive, send), timeout))
                     .doFinally(signal -> registry.unregisterNow(connection.sessionId()));
         });
@@ -189,6 +190,11 @@ public final class GatewayWebSocketHandler implements WebSocketHandler {
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to serialize WebSocket message", ex);
         }
+    }
+
+    private Mono<Void> drainOfflineMessages(String userId) {
+        if (chatService == null) return Mono.empty();
+        return chatService.drainOfflineMessages(userId);
     }
 
     private Mono<Void> heartbeatTimeout(SessionConnection connection) {

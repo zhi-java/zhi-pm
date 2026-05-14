@@ -19,6 +19,10 @@ public final class AuthenticationResult {
         return new AuthenticationResult(true, userId, Collections.emptyMap());
     }
 
+    public static AuthenticationResult authenticated(String userId, Map<String, String> attributes) {
+        return new AuthenticationResult(true, userId, attributes);
+    }
+
     public static AuthenticationResult rejected() {
         return new AuthenticationResult(false, null, Collections.emptyMap());
     }

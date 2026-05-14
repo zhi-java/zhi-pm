@@ -1,6 +1,7 @@
 package io.github.zhi.pm.autoconfigure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.zhi.pm.core.auth.JwtWebSocketAuthenticator;
 import io.github.zhi.pm.core.auth.SimpleTokenWebSocketAuthenticator;
 import io.github.zhi.pm.core.auth.WebSocketAuthenticator;
 import io.github.zhi.pm.core.chat.ChatService;
@@ -34,8 +35,20 @@ public class ReactiveWebSocketGatewayAutoConfiguration {
     MessageSender messageSender(ConnectionRegistry registry) { return new LocalMessageSender(registry); }
 
     @Bean @ConditionalOnMissingBean
-    WebSocketAuthenticator webSocketAuthenticator(RealtimeWebSocketProperties properties) {
+    @ConditionalOnProperty(prefix = "realtime.websocket.auth", name = "type", havingValue = "demo", matchIfMissing = true)
+    WebSocketAuthenticator demoWebSocketAuthenticator(RealtimeWebSocketProperties properties) {
         return new SimpleTokenWebSocketAuthenticator(properties.getAuth().getDemoTokens(), properties.getAuth().isAcceptNonBlankTokenWhenNoTokensConfigured());
+    }
+
+    @Bean @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "realtime.websocket.auth", name = "type", havingValue = "jwt")
+    WebSocketAuthenticator jwtWebSocketAuthenticator(RealtimeWebSocketProperties properties) {
+        RealtimeWebSocketProperties.Jwt jwt = properties.getAuth().getJwt();
+        if (jwt.getSecret() != null && !jwt.getSecret().isBlank()) {
+            return JwtWebSocketAuthenticator.withHmacSecret(jwt.getSecret(), jwt.getIssuer(),
+                    jwt.getAudience(), jwt.getUserIdClaim(), jwt.isAllowGuestWhenNoToken());
+        }
+        throw new IllegalArgumentException("realtime.websocket.auth.jwt.secret is required for JWT authentication");
     }
 
     @Bean @ConditionalOnMissingBean

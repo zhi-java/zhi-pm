@@ -7,6 +7,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "realtime.danmaku")
 public class DanmakuProperties {
     private boolean enabled = true;
+    private String limiterType = "local";
+    private String redisKeyPrefix = "realtime";
     private int maxContentLength = 100;
     private int maxMessagePerUserPerSecond = 2;
     private int maxMessagePerRoomPerSecond = 5000;
@@ -15,6 +17,10 @@ public class DanmakuProperties {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public String getLimiterType() { return limiterType; }
+    public void setLimiterType(String limiterType) { this.limiterType = limiterType; }
+    public String getRedisKeyPrefix() { return redisKeyPrefix; }
+    public void setRedisKeyPrefix(String redisKeyPrefix) { this.redisKeyPrefix = redisKeyPrefix; }
     public int getMaxContentLength() { return maxContentLength; }
     public void setMaxContentLength(int maxContentLength) { this.maxContentLength = maxContentLength; }
     public int getMaxMessagePerUserPerSecond() { return maxMessagePerUserPerSecond; }

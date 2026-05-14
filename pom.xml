@@ -11,6 +11,7 @@
     <module>zhi-pm-spring-boot-starter</module>
     <module>zhi-pm-room</module>
     <module>zhi-pm-broker-redis</module>
+    <module>zhi-pm-registry-redis</module>
     <module>zhi-pm-broker-kafka</module>
     <module>zhi-pm-danmaku</module>
     <module>zhi-pm-chat</module>

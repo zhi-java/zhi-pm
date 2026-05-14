@@ -18,7 +18,7 @@ class ChatServiceImplTest {
         InMemoryConnectionRegistry registry = new InMemoryConnectionRegistry();
         LocalMessageSender sender = new LocalMessageSender(registry);
         InMemoryChatStorage storage = new InMemoryChatStorage(100);
-        return new ChatServiceImpl(sender, registry, storage, 2000);
+        return new ChatServiceImpl(sender, registry, storage, 2000, true);
     }
 
     @Test
@@ -26,7 +26,7 @@ class ChatServiceImplTest {
         InMemoryConnectionRegistry registry = new InMemoryConnectionRegistry();
         LocalMessageSender sender = new LocalMessageSender(registry);
         InMemoryChatStorage storage = new InMemoryChatStorage(100);
-        ChatServiceImpl service = new ChatServiceImpl(sender, registry, storage, 2000);
+        ChatServiceImpl service = new ChatServiceImpl(sender, registry, storage, 2000, true);
 
         DefaultSessionConnection alice = new DefaultSessionConnection("s1", "alice", Collections.emptyMap(), 64, reason -> Mono.empty());
         DefaultSessionConnection bob = new DefaultSessionConnection("s2", "bob", Collections.emptyMap(), 64, reason -> Mono.empty());
@@ -44,7 +44,7 @@ class ChatServiceImplTest {
         InMemoryConnectionRegistry registry = new InMemoryConnectionRegistry();
         LocalMessageSender sender = new LocalMessageSender(registry);
         InMemoryChatStorage storage = new InMemoryChatStorage(100);
-        ChatServiceImpl service = new ChatServiceImpl(sender, registry, storage, 2000);
+        ChatServiceImpl service = new ChatServiceImpl(sender, registry, storage, 2000, true);
 
         DefaultSessionConnection alice = new DefaultSessionConnection("s1", "alice", Collections.emptyMap(), 64, reason -> Mono.empty());
         StepVerifier.create(registry.register(alice).then(registry.joinRoom("group-1", "s1"))).verifyComplete();
@@ -71,7 +71,7 @@ class ChatServiceImplTest {
         InMemoryConnectionRegistry registry = new InMemoryConnectionRegistry();
         LocalMessageSender sender = new LocalMessageSender(registry);
         InMemoryChatStorage storage = new InMemoryChatStorage(100);
-        ChatServiceImpl service = new ChatServiceImpl(sender, registry, storage, 2000);
+        ChatServiceImpl service = new ChatServiceImpl(sender, registry, storage, 2000, true);
 
         DefaultSessionConnection bob = new DefaultSessionConnection("s2", "bob", Collections.emptyMap(), 64, reason -> Mono.empty());
         StepVerifier.create(registry.register(bob)).verifyComplete();
@@ -98,7 +98,7 @@ class ChatServiceImplTest {
         InMemoryChatStorage storage = new InMemoryChatStorage(100);
         InMemoryConnectionRegistry registry = new InMemoryConnectionRegistry();
         LocalMessageSender sender = new LocalMessageSender(registry);
-        ChatServiceImpl service = new ChatServiceImpl(sender, registry, storage, 10);
+        ChatServiceImpl service = new ChatServiceImpl(sender, registry, storage, 10, true);
 
         DefaultSessionConnection alice = new DefaultSessionConnection("s1", "alice", Collections.emptyMap(), 64, reason -> Mono.empty());
         StepVerifier.create(registry.register(alice)).verifyComplete();
@@ -125,7 +125,7 @@ class ChatServiceImplTest {
         InMemoryChatStorage storage = new InMemoryChatStorage(100);
         InMemoryConnectionRegistry registry = new InMemoryConnectionRegistry();
         LocalMessageSender sender = new LocalMessageSender(registry);
-        ChatServiceImpl service = new ChatServiceImpl(sender, registry, storage, 2000);
+        ChatServiceImpl service = new ChatServiceImpl(sender, registry, storage, 2000, true);
 
         DefaultSessionConnection alice = new DefaultSessionConnection("s1", "alice", Collections.emptyMap(), 64, reason -> Mono.empty());
         StepVerifier.create(registry.register(alice).then(registry.joinRoom("conv-1", "s1"))).verifyComplete();

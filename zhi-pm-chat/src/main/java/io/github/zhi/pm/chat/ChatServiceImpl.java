@@ -9,25 +9,28 @@ import io.github.zhi.pm.core.session.SessionConnection;
 import io.github.zhi.pm.chat.model.ChatMessageModel;
 import io.github.zhi.pm.chat.model.ConversationModel;
 import io.github.zhi.pm.chat.model.DeliveryRecord;
-import io.github.zhi.pm.chat.storage.InMemoryChatStorage;
+import io.github.zhi.pm.chat.storage.ChatStorage;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public class ChatServiceImpl implements ChatService {
     private final MessageSender sender;
     private final ConnectionRegistry registry;
-    private final InMemoryChatStorage storage;
+    private final ChatStorage storage;
     private final int maxMessageLength;
+    private final boolean offlineMessageEnabled;
 
     public ChatServiceImpl(MessageSender sender, ConnectionRegistry registry,
-                           InMemoryChatStorage storage, int maxMessageLength) {
+                           ChatStorage storage, int maxMessageLength, boolean offlineMessageEnabled) {
         this.sender = sender;
         this.registry = registry;
         this.storage = storage;
         this.maxMessageLength = maxMessageLength;
+        this.offlineMessageEnabled = offlineMessageEnabled;
     }
 
     @Override
@@ -85,7 +88,9 @@ public class ChatServiceImpl implements ChatService {
         }
 
         if ("single".equals(conversationType)) {
-            return sender.sendToUsers(List.copyOf(conversation.getMembers()), chatMsg).then();
+            List<String> targets = List.copyOf(conversation.getMembers());
+            return sender.sendToUsers(targets, chatMsg).then(
+                    offlineMessageEnabled ? enqueueOfflineForOffline(targets, connection.userId(), msgModel) : Mono.empty());
         } else {
             return sender.sendToRoom(conversationId, chatMsg).then();
         }
@@ -158,8 +163,34 @@ public class ChatServiceImpl implements ChatService {
         return Mono.just(storage.getUnreadCount(conversationId, userId));
     }
 
-    public InMemoryChatStorage getStorage() {
+    @Override
+    public Mono<Void> drainOfflineMessages(String userId) {
+        List<ChatMessageModel> messages = storage.drainOfflineMessages(userId, 100);
+        if (messages.isEmpty()) return Mono.empty();
+        return Flux.fromIterable(messages)
+                .flatMap(msg -> {
+                    WsMessage<?> wsMsg = new WsMessage<>(msg.messageId(), "chat.message", null,
+                            null, msg.senderId(), userId, msg.conversationId(), msg.createdAt(),
+                            Map.of("messageId", msg.messageId(), "conversationId", msg.conversationId(),
+                                    "conversationType", msg.conversationType(), "contentType", msg.contentType(),
+                                    "content", msg.content(), "senderId", msg.senderId(),
+                                    "offline", true));
+                    return sender.sendToUser(userId, wsMsg);
+                })
+                .then();
+    }
+
+    public ChatStorage getStorage() {
         return storage;
+    }
+
+    private Mono<Void> enqueueOfflineForOffline(List<String> memberIds, String senderId, ChatMessageModel message) {
+        return Flux.fromIterable(memberIds)
+                .filter(uid -> !uid.equals(senderId))
+                .flatMap(uid -> registry.isOnline(uid).map(online -> Map.entry(uid, online)))
+                .filter(entry -> !entry.getValue())
+                .doOnNext(entry -> storage.addOfflineMessage(entry.getKey(), message))
+                .then();
     }
 
     private String getString(Map<?, ?> map, String key) {

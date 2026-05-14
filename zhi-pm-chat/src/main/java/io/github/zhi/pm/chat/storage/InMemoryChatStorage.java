@@ -13,12 +13,13 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-public class InMemoryChatStorage {
+public class InMemoryChatStorage implements ChatStorage {
     private final int maxHistoryPerConversation;
     private final Map<String, ConversationModel> conversations = new ConcurrentHashMap<>();
     private final Map<String, ConcurrentLinkedDeque<ChatMessageModel>> messagesByConversation = new ConcurrentHashMap<>();
     private final Map<String, Map<String, DeliveryRecord>> deliveriesByConversation = new ConcurrentHashMap<>();
     private final Map<String, Map<String, AtomicLong>> unreadCounts = new ConcurrentHashMap<>();
+    private final Map<String, ConcurrentLinkedDeque<ChatMessageModel>> offlineMessages = new ConcurrentHashMap<>();
 
     public InMemoryChatStorage(int maxHistoryPerConversation) {
         this.maxHistoryPerConversation = maxHistoryPerConversation;
@@ -91,5 +92,23 @@ public class InMemoryChatStorage {
 
     public Set<String> getConversationIds() {
         return Set.copyOf(conversations.keySet());
+    }
+
+    @Override
+    public void addOfflineMessage(String userId, ChatMessageModel message) {
+        offlineMessages.computeIfAbsent(userId, k -> new ConcurrentLinkedDeque<>()).addLast(message);
+    }
+
+    @Override
+    public List<ChatMessageModel> drainOfflineMessages(String userId, int limit) {
+        ConcurrentLinkedDeque<ChatMessageModel> deque = offlineMessages.get(userId);
+        if (deque == null || deque.isEmpty()) return Collections.emptyList();
+        List<ChatMessageModel> result = new ArrayList<>();
+        for (int i = 0; i < limit && !deque.isEmpty(); i++) {
+            ChatMessageModel msg = deque.pollFirst();
+            if (msg != null) result.add(msg);
+        }
+        if (deque.isEmpty()) offlineMessages.remove(userId);
+        return result;
     }
 }

@@ -8,7 +8,7 @@ import io.github.zhi.pm.core.send.MessageSender;
 import io.github.zhi.pm.core.session.SendOutcome;
 import io.github.zhi.pm.core.session.SessionConnection;
 import io.github.zhi.pm.danmaku.filter.ContentFilter;
-import io.github.zhi.pm.danmaku.limiter.TokenBucketRateLimiter;
+import io.github.zhi.pm.danmaku.limiter.RateLimiter;
 import io.github.zhi.pm.danmaku.mute.InMemoryMuteService;
 import java.time.Instant;
 import java.util.Map;
@@ -18,21 +18,21 @@ public class DanmakuServiceImpl implements DanmakuService {
     private final MessageSender sender;
     private final ConnectionRegistry registry;
     private final ContentFilter contentFilter;
-    private final TokenBucketRateLimiter userLimiter;
-    private final TokenBucketRateLimiter roomLimiter;
+    private final RateLimiter userLimiter;
+    private final RateLimiter roomLimiter;
     private final InMemoryMuteService muteService;
     private final int maxContentLength;
 
     public DanmakuServiceImpl(MessageSender sender, ConnectionRegistry registry,
                               ContentFilter contentFilter, InMemoryMuteService muteService,
-                              int maxContentLength, int maxUserPerSecond, int maxRoomPerSecond) {
+                              int maxContentLength, RateLimiter userLimiter, RateLimiter roomLimiter) {
         this.sender = sender;
         this.registry = registry;
         this.contentFilter = contentFilter;
         this.muteService = muteService;
         this.maxContentLength = maxContentLength;
-        this.userLimiter = new TokenBucketRateLimiter(maxUserPerSecond);
-        this.roomLimiter = new TokenBucketRateLimiter(maxRoomPerSecond);
+        this.userLimiter = userLimiter;
+        this.roomLimiter = roomLimiter;
     }
 
     @Override

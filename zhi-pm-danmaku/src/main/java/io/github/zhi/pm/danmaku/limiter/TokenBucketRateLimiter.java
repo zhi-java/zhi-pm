@@ -4,7 +4,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class TokenBucketRateLimiter {
+public class TokenBucketRateLimiter implements RateLimiter {
     private final int maxTokens;
     private final long refillIntervalNanos;
     private final ConcurrentMap<String, Bucket> buckets = new ConcurrentHashMap<>();

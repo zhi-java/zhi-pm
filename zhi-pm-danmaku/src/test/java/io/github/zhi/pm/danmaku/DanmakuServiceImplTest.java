@@ -5,6 +5,8 @@ import io.github.zhi.pm.core.registry.InMemoryConnectionRegistry;
 import io.github.zhi.pm.core.send.LocalMessageSender;
 import io.github.zhi.pm.core.session.DefaultSessionConnection;
 import io.github.zhi.pm.danmaku.filter.ContentFilter;
+import io.github.zhi.pm.danmaku.limiter.RateLimiter;
+import io.github.zhi.pm.danmaku.limiter.TokenBucketRateLimiter;
 import io.github.zhi.pm.danmaku.mute.InMemoryMuteService;
 import java.util.Collections;
 import java.util.List;
@@ -20,7 +22,9 @@ class DanmakuServiceImplTest {
         LocalMessageSender sender = new LocalMessageSender(registry);
         ContentFilter filter = new ContentFilter(sensitiveWords);
         InMemoryMuteService muteService = new InMemoryMuteService();
-        return new DanmakuServiceImpl(sender, registry, filter, muteService, 100, userLimit, roomLimit);
+        RateLimiter userLimiter = new TokenBucketRateLimiter(userLimit);
+        RateLimiter roomLimiter = new TokenBucketRateLimiter(roomLimit);
+        return new DanmakuServiceImpl(sender, registry, filter, muteService, 100, userLimiter, roomLimiter);
     }
 
     @Test
@@ -29,7 +33,9 @@ class DanmakuServiceImplTest {
         LocalMessageSender sender = new LocalMessageSender(registry);
         ContentFilter filter = new ContentFilter(Collections.emptyList());
         InMemoryMuteService muteService = new InMemoryMuteService();
-        DanmakuServiceImpl service = new DanmakuServiceImpl(sender, registry, filter, muteService, 100, 10, 5000);
+        RateLimiter userLimiter = new TokenBucketRateLimiter(10);
+        RateLimiter roomLimiter = new TokenBucketRateLimiter(5000);
+        DanmakuServiceImpl service = new DanmakuServiceImpl(sender, registry, filter, muteService, 100, userLimiter, roomLimiter);
 
         DefaultSessionConnection conn = new DefaultSessionConnection("s1", "u1", Collections.emptyMap(), 64, reason -> Mono.empty());
         StepVerifier.create(registry.register(conn).then(registry.joinRoom("live1", "s1"))).verifyComplete();
@@ -44,7 +50,9 @@ class DanmakuServiceImplTest {
         LocalMessageSender sender = new LocalMessageSender(registry);
         ContentFilter filter = new ContentFilter(Collections.emptyList());
         InMemoryMuteService muteService = new InMemoryMuteService();
-        DanmakuServiceImpl service = new DanmakuServiceImpl(sender, registry, filter, muteService, 100, 10, 5000);
+        RateLimiter userLimiter = new TokenBucketRateLimiter(10);
+        RateLimiter roomLimiter = new TokenBucketRateLimiter(5000);
+        DanmakuServiceImpl service = new DanmakuServiceImpl(sender, registry, filter, muteService, 100, userLimiter, roomLimiter);
 
         DefaultSessionConnection conn = new DefaultSessionConnection("s1", "u1", Collections.emptyMap(), 64, reason -> Mono.empty());
         StepVerifier.create(registry.register(conn).then(registry.joinRoom("live1", "s1"))).verifyComplete();

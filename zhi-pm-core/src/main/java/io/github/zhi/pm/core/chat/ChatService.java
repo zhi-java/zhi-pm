@@ -20,4 +20,6 @@ public interface ChatService {
     Mono<List<Map<String, Object>>> getHistory(String conversationId, int limit);
 
     Mono<Long> getUnreadCount(String conversationId, String userId);
+
+    Mono<Void> drainOfflineMessages(String userId);
 }
